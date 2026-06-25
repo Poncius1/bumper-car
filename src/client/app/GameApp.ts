@@ -1,12 +1,17 @@
 import { GAME_CONFIG } from './GameConfig';
 import { GameLoop } from './GameLoop';
+import { InputSystem } from '../input/InputSystem';
+import { KeyboardInputSource } from '../input/KeyboardInputSource';
 import { createBumperCarScene } from '../render/SceneFactory';
 import { ThreeRenderer } from '../render/ThreeRenderer';
+import { InputDebugOverlay } from '../ui/InputDebug.ts';
 
 export class GameApp {
   private readonly root: HTMLElement;
   private readonly renderer: ThreeRenderer;
   private readonly loop: GameLoop;
+  private readonly inputSystem: InputSystem;
+  private readonly inputDebugOverlay: InputDebugOverlay;
 
   public constructor(root: HTMLElement) {
     this.root = root;
@@ -19,6 +24,11 @@ export class GameApp {
       scene: scene.scene,
       camera: scene.camera,
     });
+
+    this.inputSystem = new InputSystem();
+    this.inputSystem.addSource(new KeyboardInputSource());
+
+    this.inputDebugOverlay = new InputDebugOverlay(this.root);
 
     this.loop = new GameLoop(
       {
@@ -39,26 +49,23 @@ export class GameApp {
 
   public dispose(): void {
     this.loop.stop();
+    this.inputDebugOverlay.dispose();
+    this.inputSystem.dispose();
     this.renderer.dispose();
   }
 
   private readonly fixedUpdate = (_fixedDeltaTime: number): void => {
     /**
-     * Future simulation code goes here:
-     * - car movement
-     * - collisions
-     * - match rules
-     * - local prediction
+     * Future simulation code:
+     * - read current input command
+     * - update car movement
+     * - send input command to server
      */
   };
 
   private readonly update = (_deltaTime: number): void => {
-    /**
-     * Future presentation code goes here:
-     * - camera smoothing
-     * - UI updates
-     * - animation blending
-     */
+    this.inputSystem.update();
+    this.inputDebugOverlay.update(this.inputSystem.getCurrentCommand());
   };
 
   private readonly render = (): void => {
