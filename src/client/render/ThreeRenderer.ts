@@ -9,7 +9,6 @@ interface ThreeRendererOptions {
 export class ThreeRenderer {
   private readonly options: ThreeRendererOptions;
   private readonly renderer: THREE.WebGLRenderer;
-  private animationFrameId: number | null = null;
 
   public constructor(options: ThreeRendererOptions) {
     this.options = options;
@@ -26,31 +25,16 @@ export class ThreeRenderer {
     window.addEventListener('resize', this.handleResize);
   }
 
-  public start(): void {
-    if (this.animationFrameId !== null) {
-      return;
-    }
-
-    this.renderFrame();
+  public render(): void {
+    this.renderer.render(this.options.scene, this.options.camera);
   }
 
   public dispose(): void {
-    if (this.animationFrameId !== null) {
-      window.cancelAnimationFrame(this.animationFrameId);
-      this.animationFrameId = null;
-    }
-
     window.removeEventListener('resize', this.handleResize);
 
     this.renderer.dispose();
     this.renderer.domElement.remove();
   }
-
-  private readonly renderFrame = (): void => {
-    this.renderer.render(this.options.scene, this.options.camera);
-
-    this.animationFrameId = window.requestAnimationFrame(this.renderFrame);
-  };
 
   private readonly handleResize = (): void => {
     const width = window.innerWidth;
