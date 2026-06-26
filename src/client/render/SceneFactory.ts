@@ -3,17 +3,19 @@ import * as THREE from 'three';
 export interface BumperCarScene {
   readonly scene: THREE.Scene;
   readonly camera: THREE.PerspectiveCamera;
+  readonly localPlayerCar: THREE.Group;
 }
 
 /**
  * Creates the initial prototype scene.
  *
- * This is intentionally simple:
- * - no gameplay logic
- * - no networking
- * - no physics
+ * This module owns static scene creation only:
+ * - camera
+ * - lights
+ * - arena
+ * - placeholder car visual
  *
- * The goal of this module is to own static scene creation only.
+ * Gameplay simulation lives outside this file.
  */
 export function createBumperCarScene(): BumperCarScene {
   const scene = new THREE.Scene();
@@ -22,16 +24,17 @@ export function createBumperCarScene(): BumperCarScene {
   const camera = createCamera();
   const lights = createLights();
   const arena = createArena();
-  const car = createPlaceholderCar();
+  const localPlayerCar = createPlaceholderCar();
 
   scene.add(lights.ambientLight);
   scene.add(lights.directionalLight);
   scene.add(arena);
-  scene.add(car);
+  scene.add(localPlayerCar);
 
   return {
     scene,
     camera,
+    localPlayerCar,
   };
 }
 
@@ -115,10 +118,6 @@ function createPlaceholderCar(): THREE.Group {
   cabin.position.set(0, 0.75, -0.25);
   cabin.name = 'CarCabin';
 
-  /**
-   * Small front marker so we can clearly see where the car is facing.
-   * This will be useful once movement and rotation are added.
-   */
   const frontMarkerGeometry = new THREE.BoxGeometry(0.35, 0.2, 0.25);
   const frontMarkerMaterial = new THREE.MeshStandardMaterial({
     color: 0xffff66,

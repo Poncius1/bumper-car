@@ -1,17 +1,25 @@
 import { GAME_CONFIG } from './GameConfig';
 import { GameLoop } from './GameLoop';
+import { ThirdPersonCarCamera } from '../camera/ThirdPersonController';
+import { CarEntity } from '../game/entities/CarEntity';
+import { CarMovementSystem } from '../game/systems/CarMovementSystem';
 import { InputSystem } from '../input/InputSystem';
 import { KeyboardInputSource } from '../input/KeyboardInputSource';
 import { createBumperCarScene } from '../render/SceneFactory';
 import { ThreeRenderer } from '../render/ThreeRenderer';
-import { InputDebugOverlay } from '../ui/InputDebug.ts';
+import { InputDebugOverlay } from '../ui/InputDebug';
 
 export class GameApp {
   private readonly root: HTMLElement;
   private readonly renderer: ThreeRenderer;
   private readonly loop: GameLoop;
+
   private readonly inputSystem: InputSystem;
   private readonly inputDebugOverlay: InputDebugOverlay;
+
+  private readonly localPlayerCar: CarEntity;
+  private readonly carMovementSystem: CarMovementSystem;
+  private readonly cameraController: ThirdPersonCarCamera;
 
   public constructor(root: HTMLElement) {
     this.root = root;
@@ -29,6 +37,23 @@ export class GameApp {
     this.inputSystem.addSource(new KeyboardInputSource());
 
     this.inputDebugOverlay = new InputDebugOverlay(this.root);
+
+    this.localPlayerCar = new CarEntity({
+      visual: scene.localPlayerCar,
+    });
+
+    this.carMovementSystem = new CarMovementSystem(GAME_CONFIG.car);
+
+    this.cameraController = new ThirdPersonCarCamera({
+      camera: scene.camera,
+      distance: GAME_CONFIG.camera.distance,
+      height: GAME_CONFIG.camera.height,
+      lookAtHeight: GAME_CONFIG.camera.lookAtHeight,
+      positionSmoothing: GAME_CONFIG.camera.positionSmoothing,
+      lookAtSmoothing: GAME_CONFIG.camera.lookAtSmoothing,
+    });
+
+    this.cameraController.snapToTarget(this.localPlayerCar);
 
     this.loop = new GameLoop(
       {
@@ -54,18 +79,18 @@ export class GameApp {
     this.renderer.dispose();
   }
 
-  private readonly fixedUpdate = (_fixedDeltaTime: number): void => {
-    /**
-     * Future simulation code:
-     * - read current input command
-     * - update car movement
-     * - send input command to server
-     */
+  private readonly fixedUpdate = (fixedDeltaTime: number): void => {
+    this.carMovementSystem.update(
+      this.localPlayerCar,
+      this.inputSystem.getCurrentCommand(),
+      fixedDeltaTime,
+    );
   };
 
-  private readonly update = (_deltaTime: number): void => {
+  private readonly update = (deltaTime: number): void => {
     this.inputSystem.update();
     this.inputDebugOverlay.update(this.inputSystem.getCurrentCommand());
+    this.cameraController.update(this.localPlayerCar, deltaTime);
   };
 
   private readonly render = (): void => {
