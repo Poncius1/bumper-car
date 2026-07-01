@@ -1,27 +1,35 @@
 import * as THREE from 'three';
 
 const PROTOTYPE_GYM_CONFIG = {
-  skyColor: 0xB8FDFF,
-  floorColor: 0xffffff,
+  skyColor: 0xb8f4f2,
+  floorColor: 0xc8c8c8,
   floorSize: 100,
 } as const;
 
 export interface BumperCarScene {
   readonly scene: THREE.Scene;
   readonly camera: THREE.PerspectiveCamera;
+
+  /**
+   * This is the gameplay visual root.
+   *
+   * Movement, rotation and interpolation should affect this object.
+   * The placeholder mesh or imported GLB model lives inside this root.
+   */
   readonly localPlayerCar: THREE.Group;
 }
 
 /**
  * Creates the prototype gym scene.
  *
- * The gym is a clean testing environment for:
- * - car movement
- * - camera feel
- * - future collision testing
- * - future multiplayer spawning
+ * This scene is intentionally simple:
+ * - clean background
+ * - large floor
+ * - spawn marker
+ * - placeholder car root
  *
- * It intentionally avoids complex art direction so gameplay feel is easier to evaluate.
+ * The imported GLB model is loaded later by GameApp and inserted into
+ * localPlayerCar.
  */
 export function createBumperCarScene(): BumperCarScene {
   const scene = new THREE.Scene();
@@ -30,7 +38,7 @@ export function createBumperCarScene(): BumperCarScene {
   const camera = createCamera();
   const lights = createLights();
   const gym = createPrototypeGym();
-  const localPlayerCar = createPlaceholderCar();
+  const localPlayerCar = createLocalPlayerCarRoot();
 
   scene.add(lights.ambientLight);
   scene.add(lights.directionalLight);
@@ -49,7 +57,7 @@ function createCamera(): THREE.PerspectiveCamera {
     60,
     window.innerWidth / window.innerHeight,
     0.1,
-    200,
+    250,
   );
 
   camera.position.set(0, 6, 9);
@@ -62,9 +70,9 @@ function createLights(): {
   readonly ambientLight: THREE.AmbientLight;
   readonly directionalLight: THREE.DirectionalLight;
 } {
-  const ambientLight = new THREE.AmbientLight(0xffffff, 0.75);
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
 
-  const directionalLight = new THREE.DirectionalLight(0xffffff, 1.25);
+  const directionalLight = new THREE.DirectionalLight(0xffffff, 1.35);
   directionalLight.position.set(5, 10, 6);
 
   return {
@@ -96,7 +104,7 @@ function createGymFloor(): THREE.Mesh {
 
   const floorMaterial = new THREE.MeshStandardMaterial({
     color: PROTOTYPE_GYM_CONFIG.floorColor,
-    roughness: 0.9,
+    roughness: 0.92,
     metalness: 0,
   });
 
@@ -104,7 +112,7 @@ function createGymFloor(): THREE.Mesh {
 
   /**
    * PlaneGeometry is vertical by default.
-   * We rotate it so it becomes the ground plane on XZ.
+   * Rotate it so it becomes the ground plane on XZ.
    */
   floor.rotation.x = -Math.PI / 2;
   floor.position.y = 0;
@@ -116,7 +124,7 @@ function createGymFloor(): THREE.Mesh {
 function createCenterMarker(): THREE.Mesh {
   const markerGeometry = new THREE.CylinderGeometry(1.2, 1.2, 0.025, 48);
   const markerMaterial = new THREE.MeshStandardMaterial({
-    color: 0xe8e8df,
+    color: 0xb8b8b8,
     roughness: 0.85,
     metalness: 0,
   });
@@ -158,9 +166,31 @@ function createSpawnMarker(): THREE.Group {
   return marker;
 }
 
-function createPlaceholderCar(): THREE.Group {
+/**
+ * Creates the root object controlled by gameplay.
+ *
+ * This object should always exist, even before the real GLB is loaded.
+ * The placeholder mesh is only a temporary child.
+ */
+function createLocalPlayerCarRoot(): THREE.Group {
+  const carRoot = new THREE.Group();
+  carRoot.name = 'LocalPlayerCar';
+
+  const placeholder = createPlaceholderCarMesh();
+  carRoot.add(placeholder);
+
+  return carRoot;
+}
+
+/**
+ * Temporary visual fallback.
+ *
+ * Once the GLB model is loaded, GameApp will clear LocalPlayerCar and
+ * insert the imported model instead.
+ */
+function createPlaceholderCarMesh(): THREE.Group {
   const car = new THREE.Group();
-  car.name = 'LocalPlayerCar';
+  car.name = 'PlaceholderCarMesh';
 
   const bodyGeometry = new THREE.BoxGeometry(1.6, 0.45, 2.4);
   const bodyMaterial = new THREE.MeshStandardMaterial({
@@ -186,7 +216,7 @@ function createPlaceholderCar(): THREE.Group {
 
   /**
    * Small front marker so we can clearly see where the car is facing.
-   * This will be useful while tuning movement and camera behavior.
+   * Our movement convention is: car front points toward local -Z.
    */
   const frontMarkerGeometry = new THREE.BoxGeometry(0.35, 0.2, 0.25);
   const frontMarkerMaterial = new THREE.MeshStandardMaterial({

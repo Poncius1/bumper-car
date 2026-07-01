@@ -1,6 +1,6 @@
 export interface GameLoopCallbacks {
   readonly fixedUpdate: (fixedDeltaTime: number) => void;
-  readonly update: (deltaTime: number) => void;
+  readonly update: (deltaTime: number, interpolationAlpha: number) => void;
   readonly render: () => void;
 }
 
@@ -9,17 +9,6 @@ export interface GameLoopOptions {
   readonly maxAccumulatedTime: number;
 }
 
-/**
- * Owns the main browser frame loop.
- *
- * The loop separates:
- * - fixedUpdate: deterministic simulation steps
- * - update: variable-rate presentation updates
- * - render: drawing the current frame
- *
- * This is the foundation for future server-authoritative simulation,
- * client prediction and snapshot interpolation.
- */
 export class GameLoop {
   private readonly callbacks: GameLoopCallbacks;
   private readonly options: GameLoopOptions;
@@ -67,7 +56,10 @@ export class GameLoop {
       this.accumulatedTime -= this.options.fixedTimeStep;
     }
 
-    this.callbacks.update(deltaTime);
+    const interpolationAlpha =
+      this.accumulatedTime / this.options.fixedTimeStep;
+
+    this.callbacks.update(deltaTime, interpolationAlpha);
     this.callbacks.render();
 
     this.animationFrameId = window.requestAnimationFrame(this.tick);

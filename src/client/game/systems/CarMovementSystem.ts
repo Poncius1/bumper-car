@@ -20,12 +20,14 @@ export class CarMovementSystem {
   }
 
   public update(car: CarEntity, input: CarInputCommand, deltaTime: number): void {
-    this.updateSpeed(car, input, deltaTime);
-    this.updateRotation(car, input, deltaTime);
-    this.updatePosition(car, deltaTime);
+  car.beginSimulationStep();
 
-    car.syncVisual();
-  }
+  this.updateSpeed(car, input, deltaTime);
+  this.updateRotation(car, input, deltaTime);
+  this.updatePosition(car, deltaTime);
+
+  car.yaw = normalizeAngle(car.yaw);
+}
 
   private updateSpeed(
     car: CarEntity,
@@ -118,4 +120,8 @@ function moveTowards(current: number, target: number, maxDelta: number): number 
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
+}
+
+function normalizeAngle(angle: number): number {
+  return Math.atan2(Math.sin(angle), Math.cos(angle));
 }
