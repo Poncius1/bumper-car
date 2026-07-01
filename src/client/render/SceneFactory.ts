@@ -1,5 +1,11 @@
 import * as THREE from 'three';
 
+const PROTOTYPE_GYM_CONFIG = {
+  skyColor: 0xB8FDFF,
+  floorColor: 0xffffff,
+  floorSize: 100,
+} as const;
+
 export interface BumperCarScene {
   readonly scene: THREE.Scene;
   readonly camera: THREE.PerspectiveCamera;
@@ -7,28 +13,28 @@ export interface BumperCarScene {
 }
 
 /**
- * Creates the initial prototype scene.
+ * Creates the prototype gym scene.
  *
- * This module owns static scene creation only:
- * - camera
- * - lights
- * - arena
- * - placeholder car visual
+ * The gym is a clean testing environment for:
+ * - car movement
+ * - camera feel
+ * - future collision testing
+ * - future multiplayer spawning
  *
- * Gameplay simulation lives outside this file.
+ * It intentionally avoids complex art direction so gameplay feel is easier to evaluate.
  */
 export function createBumperCarScene(): BumperCarScene {
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x101014);
+  scene.background = new THREE.Color(PROTOTYPE_GYM_CONFIG.skyColor);
 
   const camera = createCamera();
   const lights = createLights();
-  const arena = createArena();
+  const gym = createPrototypeGym();
   const localPlayerCar = createPlaceholderCar();
 
   scene.add(lights.ambientLight);
   scene.add(lights.directionalLight);
-  scene.add(arena);
+  scene.add(gym);
   scene.add(localPlayerCar);
 
   return {
@@ -43,10 +49,10 @@ function createCamera(): THREE.PerspectiveCamera {
     60,
     window.innerWidth / window.innerHeight,
     0.1,
-    100,
+    200,
   );
 
-  camera.position.set(8, 7, 8);
+  camera.position.set(0, 6, 9);
   camera.lookAt(0, 0, 0);
 
   return camera;
@@ -56,10 +62,10 @@ function createLights(): {
   readonly ambientLight: THREE.AmbientLight;
   readonly directionalLight: THREE.DirectionalLight;
 } {
-  const ambientLight = new THREE.AmbientLight(0xffffff, 0.45);
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.75);
 
-  const directionalLight = new THREE.DirectionalLight(0xffffff, 1.4);
-  directionalLight.position.set(6, 10, 4);
+  const directionalLight = new THREE.DirectionalLight(0xffffff, 1.25);
+  directionalLight.position.set(5, 10, 6);
 
   return {
     ambientLight,
@@ -67,29 +73,89 @@ function createLights(): {
   };
 }
 
-function createArena(): THREE.Group {
-  const arena = new THREE.Group();
-  arena.name = 'PrototypeArena';
+function createPrototypeGym(): THREE.Group {
+  const gym = new THREE.Group();
+  gym.name = 'PrototypeGym';
 
-  const floorGeometry = new THREE.BoxGeometry(18, 0.2, 18);
+  const floor = createGymFloor();
+  const centerMarker = createCenterMarker();
+  const spawnMarker = createSpawnMarker();
+
+  gym.add(floor);
+  gym.add(centerMarker);
+  gym.add(spawnMarker);
+
+  return gym;
+}
+
+function createGymFloor(): THREE.Mesh {
+  const floorGeometry = new THREE.PlaneGeometry(
+    PROTOTYPE_GYM_CONFIG.floorSize,
+    PROTOTYPE_GYM_CONFIG.floorSize,
+  );
+
   const floorMaterial = new THREE.MeshStandardMaterial({
-    color: 0x242433,
-    roughness: 0.85,
-    metalness: 0.1,
+    color: PROTOTYPE_GYM_CONFIG.floorColor,
+    roughness: 0.9,
+    metalness: 0,
   });
 
   const floor = new THREE.Mesh(floorGeometry, floorMaterial);
-  floor.position.y = -0.1;
-  floor.name = 'ArenaFloor';
 
-  const grid = new THREE.GridHelper(18, 18, 0x6677ff, 0x333344);
-  grid.position.y = 0.02;
-  grid.name = 'ArenaGrid';
+  /**
+   * PlaneGeometry is vertical by default.
+   * We rotate it so it becomes the ground plane on XZ.
+   */
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.y = 0;
+  floor.name = 'GymFloor';
 
-  arena.add(floor);
-  arena.add(grid);
+  return floor;
+}
 
-  return arena;
+function createCenterMarker(): THREE.Mesh {
+  const markerGeometry = new THREE.CylinderGeometry(1.2, 1.2, 0.025, 48);
+  const markerMaterial = new THREE.MeshStandardMaterial({
+    color: 0xe8e8df,
+    roughness: 0.85,
+    metalness: 0,
+  });
+
+  const marker = new THREE.Mesh(markerGeometry, markerMaterial);
+  marker.position.y = 0.025;
+  marker.name = 'GymCenterMarker';
+
+  return marker;
+}
+
+function createSpawnMarker(): THREE.Group {
+  const marker = new THREE.Group();
+  marker.name = 'LocalPlayerSpawnMarker';
+
+  const lineMaterial = new THREE.MeshStandardMaterial({
+    color: 0x5f7cff,
+    roughness: 0.7,
+    metalness: 0,
+  });
+
+  const forwardLine = new THREE.Mesh(
+    new THREE.BoxGeometry(0.12, 0.03, 2),
+    lineMaterial,
+  );
+  forwardLine.position.set(0, 0.04, -1);
+  forwardLine.name = 'SpawnForwardLine';
+
+  const sideLine = new THREE.Mesh(
+    new THREE.BoxGeometry(1.2, 0.03, 0.12),
+    lineMaterial,
+  );
+  sideLine.position.set(0, 0.04, 0);
+  sideLine.name = 'SpawnSideLine';
+
+  marker.add(forwardLine);
+  marker.add(sideLine);
+
+  return marker;
 }
 
 function createPlaceholderCar(): THREE.Group {
@@ -118,6 +184,10 @@ function createPlaceholderCar(): THREE.Group {
   cabin.position.set(0, 0.75, -0.25);
   cabin.name = 'CarCabin';
 
+  /**
+   * Small front marker so we can clearly see where the car is facing.
+   * This will be useful while tuning movement and camera behavior.
+   */
   const frontMarkerGeometry = new THREE.BoxGeometry(0.35, 0.2, 0.25);
   const frontMarkerMaterial = new THREE.MeshStandardMaterial({
     color: 0xffff66,

@@ -12,6 +12,8 @@ export interface ThirdPersonCarCameraOptions {
 }
 
 export class ThirdPersonCarCamera implements CameraController {
+  public readonly mode = 'thirdPersonCar';
+
   private readonly camera: THREE.PerspectiveCamera;
   private readonly distance: number;
   private readonly height: number;

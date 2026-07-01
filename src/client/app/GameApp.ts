@@ -7,7 +7,7 @@ import { InputSystem } from '../input/InputSystem';
 import { KeyboardInputSource } from '../input/KeyboardInputSource';
 import { createBumperCarScene } from '../render/SceneFactory';
 import { ThreeRenderer } from '../render/ThreeRenderer';
-import { InputDebugOverlay } from '../ui/InputDebug';
+import { GameplayDebugOverlay } from '../ui/GameplayDebugOverlay';
 
 export class GameApp {
   private readonly root: HTMLElement;
@@ -15,7 +15,7 @@ export class GameApp {
   private readonly loop: GameLoop;
 
   private readonly inputSystem: InputSystem;
-  private readonly inputDebugOverlay: InputDebugOverlay;
+  private readonly gameplayDebugOverlay: GameplayDebugOverlay;
 
   private readonly localPlayerCar: CarEntity;
   private readonly carMovementSystem: CarMovementSystem;
@@ -36,7 +36,7 @@ export class GameApp {
     this.inputSystem = new InputSystem();
     this.inputSystem.addSource(new KeyboardInputSource());
 
-    this.inputDebugOverlay = new InputDebugOverlay(this.root);
+    this.gameplayDebugOverlay = new GameplayDebugOverlay(this.root);
 
     this.localPlayerCar = new CarEntity({
       visual: scene.localPlayerCar,
@@ -74,7 +74,7 @@ export class GameApp {
 
   public dispose(): void {
     this.loop.stop();
-    this.inputDebugOverlay.dispose();
+    this.gameplayDebugOverlay.dispose();
     this.inputSystem.dispose();
     this.renderer.dispose();
   }
@@ -87,11 +87,18 @@ export class GameApp {
     );
   };
 
-  private readonly update = (deltaTime: number): void => {
-    this.inputSystem.update();
-    this.inputDebugOverlay.update(this.inputSystem.getCurrentCommand());
-    this.cameraController.update(this.localPlayerCar, deltaTime);
-  };
+ private readonly update = (deltaTime: number): void => {
+  this.inputSystem.update();
+  this.cameraController.update(this.localPlayerCar, deltaTime);
+
+  this.gameplayDebugOverlay.update({
+    deltaTime,
+    fixedTimeStep: GAME_CONFIG.simulation.fixedTimeStep,
+    car: this.localPlayerCar,
+    input: this.inputSystem.getCurrentCommand(),
+    cameraMode: this.cameraController.mode,
+  });
+};
 
   private readonly render = (): void => {
     this.renderer.render();
