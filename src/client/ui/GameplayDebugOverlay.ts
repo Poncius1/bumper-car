@@ -16,6 +16,9 @@ interface DebugCarState {
   readonly yaw: number;
   readonly angularVelocity: number;
   readonly mass: number;
+  readonly isDrifting: boolean;
+  readonly isBoosting: boolean;
+  readonly slipRatio: number;
 }
 
 export interface GameplayDebugOverlayData {
@@ -75,6 +78,9 @@ export class GameplayDebugOverlay {
         <span>Lateral Speed</span>
         <strong>${data.car.lateralSpeed.toFixed(2)}</strong>
 
+        <span>Slip Ratio</span>
+        <strong>${data.car.slipRatio.toFixed(2)}</strong>
+
         <span>Yaw</span>
         <strong>${radiansToDegrees(data.car.yaw).toFixed(1)}°</strong>
 
@@ -88,6 +94,12 @@ export class GameplayDebugOverlay {
       <section class="gameplay-debug-overlay__section">
         <span>Camera</span>
         <strong>${data.cameraMode}</strong>
+
+        <span>Drifting</span>
+        <strong>${data.car.isDrifting ? 'ON' : 'OFF'}</strong>
+
+        <span>Boosting</span>
+        <strong>${data.car.isBoosting ? 'ON' : 'OFF'}</strong>
 
         <span>Throttle</span>
         <strong>${data.input.throttle.toFixed(2)}</strong>

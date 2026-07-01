@@ -7,8 +7,8 @@ export interface CarEntityOptions {
 /**
  * Local gameplay representation of a bumper car.
  *
- * This entity owns simulation state. The visual object is only a presentation
- * root that follows the interpolated simulation transform.
+ * The simulation state lives here. The visual object only follows the
+ * interpolated simulation transform.
  */
 export class CarEntity {
   public readonly visual: THREE.Object3D;
@@ -25,6 +25,13 @@ export class CarEntity {
 
   public angularVelocity = 0;
   public mass = 1;
+
+  public isDrifting = false;
+  public isBoosting = false;
+  public slipRatio = 0;
+
+  public visualRoll = 0;
+  public visualPitch = 0;
 
   public constructor(options: CarEntityOptions) {
     this.visual = options.visual;
@@ -52,15 +59,6 @@ export class CarEntity {
     this.previousYaw = this.yaw;
   }
 
-  /**
-   * Applies an external impulse to the car.
-   *
-   * This is not used by collisions yet, but prepares the entity for:
-   * - wall bounce
-   * - car-to-car impacts
-   * - power-ups
-   * - knockback
-   */
   public applyImpulse(impulse: THREE.Vector3): void {
     if (this.mass <= 0) {
       return;
@@ -83,7 +81,7 @@ export class CarEntity {
     );
 
     this.visual.position.copy(this.renderPosition);
-    this.visual.rotation.y = this.renderYaw;
+    this.visual.rotation.set(this.visualPitch, this.renderYaw, this.visualRoll);
   }
 }
 

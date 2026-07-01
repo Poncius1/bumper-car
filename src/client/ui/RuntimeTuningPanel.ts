@@ -207,6 +207,26 @@ function createCarSection(tuning: RuntimeCarTuning): HTMLElement {
       },
     },
     {
+      label: 'Drift Turn',
+      min: 0.5,
+      max: 4,
+      step: 0.05,
+      getValue: () => tuning.driftTurnMultiplier,
+      setValue: (value) => {
+        tuning.driftTurnMultiplier = value;
+      },
+    },
+    {
+      label: 'Drift Retain',
+      min: 0.5,
+      max: 1,
+      step: 0.01,
+      getValue: () => tuning.driftSpeedRetention,
+      setValue: (value) => {
+        tuning.driftSpeedRetention = value;
+      },
+    },
+    {
       label: 'Boost Mult',
       min: 1,
       max: 5,
@@ -214,6 +234,46 @@ function createCarSection(tuning: RuntimeCarTuning): HTMLElement {
       getValue: () => tuning.boostMultiplier,
       setValue: (value) => {
         tuning.boostMultiplier = value;
+      },
+    },
+    {
+      label: 'Boost Turn Pen',
+      min: 0.2,
+      max: 1.5,
+      step: 0.05,
+      getValue: () => tuning.boostTurnPenalty,
+      setValue: (value) => {
+        tuning.boostTurnPenalty = value;
+      },
+    },
+    {
+      label: 'Boost Min Speed',
+      min: 0,
+      max: 20,
+      step: 0.5,
+      getValue: () => tuning.boostMinSpeed,
+      setValue: (value) => {
+        tuning.boostMinSpeed = value;
+      },
+    },
+    {
+      label: 'Visual Lean',
+      min: 0,
+      max: 0.5,
+      step: 0.01,
+      getValue: () => tuning.visualLeanAmount,
+      setValue: (value) => {
+        tuning.visualLeanAmount = value;
+      },
+    },
+    {
+      label: 'Drift Lean',
+      min: 0,
+      max: 0.8,
+      step: 0.01,
+      getValue: () => tuning.visualDriftLeanAmount,
+      setValue: (value) => {
+        tuning.visualDriftLeanAmount = value;
       },
     },
   ]);

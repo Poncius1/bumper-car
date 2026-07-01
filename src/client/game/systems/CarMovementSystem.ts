@@ -20,8 +20,15 @@ export interface CarMovementConfig {
 
   lateralGrip: number;
   driftGrip: number;
+  driftTurnMultiplier: number;
+  driftSpeedRetention: number;
 
   boostMultiplier: number;
+  boostTurnPenalty: number;
+  boostMinSpeed: number;
+
+  visualLeanAmount: number;
+  visualDriftLeanAmount: number;
 }
 
 const TEMP_FORWARD = new THREE.Vector3();
@@ -38,14 +45,29 @@ export class CarMovementSystem {
     car.beginSimulationStep();
     car.mass = this.config.mass;
 
+    this.updateStateFlags(car, input);
     this.applyThrottle(car, input, deltaTime);
-    this.applyBrakingOrDrag(car, input, deltaTime);
-    this.clampForwardSpeed(car, input);
+    this.applyHandbrakeOrDrag(car, input, deltaTime);
+    this.clampForwardSpeed(car);
     this.applyLateralGrip(car, input, deltaTime);
     this.updateRotation(car, input, deltaTime);
+    this.applyVisualLean(car, input, deltaTime);
     this.integratePosition(car, deltaTime);
 
     car.yaw = normalizeAngle(car.yaw);
+  }
+
+  private updateStateFlags(car: CarEntity, input: CarInputCommand): void {
+    const enoughSpeedToDrift = car.speed > 2.5;
+    const steeringWhileBraking = Math.abs(input.steering) > 0.1 && input.brake;
+
+    car.isDrifting = enoughSpeedToDrift && steeringWhileBraking;
+    car.isBoosting = input.boost && input.throttle > 0;
+
+    const lateral = Math.abs(car.lateralSpeed);
+    const total = Math.max(car.speed, 0.001);
+
+    car.slipRatio = clamp(lateral / total, 0, 1);
   }
 
   private applyThrottle(
@@ -56,9 +78,8 @@ export class CarMovementSystem {
     const forward = getForwardVector(car.yaw, TEMP_FORWARD);
 
     if (input.throttle > 0) {
-      const acceleration = input.boost
-        ? this.config.acceleration * this.config.boostMultiplier
-        : this.config.acceleration;
+      const boostScale = car.isBoosting ? this.config.boostMultiplier : 1;
+      const acceleration = this.config.acceleration * boostScale;
 
       car.velocity.addScaledVector(forward, acceleration * deltaTime);
       return;
@@ -72,7 +93,7 @@ export class CarMovementSystem {
     }
   }
 
-  private applyBrakingOrDrag(
+  private applyHandbrakeOrDrag(
     car: CarEntity,
     input: CarInputCommand,
     deltaTime: number,
@@ -81,14 +102,19 @@ export class CarMovementSystem {
     const forwardSpeed = car.velocity.dot(forward);
 
     if (input.brake) {
+      /**
+       * Handbrake should not kill all momentum instantly.
+       * It reduces forward speed but keeps enough energy to drift.
+       */
+      const targetForwardSpeed = forwardSpeed * this.config.driftSpeedRetention;
+
       const nextForwardSpeed = moveTowards(
         forwardSpeed,
-        0,
+        targetForwardSpeed,
         this.config.brakeDeceleration * deltaTime,
       );
 
       car.velocity.addScaledVector(forward, nextForwardSpeed - forwardSpeed);
-
       return;
     }
 
@@ -97,16 +123,20 @@ export class CarMovementSystem {
     }
 
     const dragFactor = Math.max(0, 1 - this.config.drag * deltaTime);
+
     car.velocity.x *= dragFactor;
     car.velocity.z *= dragFactor;
   }
 
-  private clampForwardSpeed(car: CarEntity, input: CarInputCommand): void {
+  private clampForwardSpeed(car: CarEntity): void {
     const forward = getForwardVector(car.yaw, TEMP_FORWARD);
     const forwardSpeed = car.velocity.dot(forward);
 
-    const maxForwardSpeed = input.boost
-      ? this.config.maxForwardSpeed * this.config.boostMultiplier
+    const maxForwardSpeed = car.isBoosting
+      ? Math.max(
+          this.config.maxForwardSpeed * this.config.boostMultiplier,
+          this.config.boostMinSpeed,
+        )
       : this.config.maxForwardSpeed;
 
     if (forwardSpeed > maxForwardSpeed) {
@@ -120,6 +150,13 @@ export class CarMovementSystem {
         -this.config.maxReverseSpeed - forwardSpeed,
       );
     }
+
+    if (car.isBoosting && forwardSpeed < this.config.boostMinSpeed) {
+      car.velocity.addScaledVector(
+        forward,
+        this.config.boostMinSpeed - forwardSpeed,
+      );
+    }
   }
 
   private applyLateralGrip(
@@ -130,10 +167,6 @@ export class CarMovementSystem {
     const right = getRightVector(car.yaw, TEMP_RIGHT);
     const lateralSpeed = car.velocity.dot(right);
 
-    /**
-     * Brake reduces lateral grip, allowing the car to slide.
-     * This is the first step toward an arcade drift/handbrake feel.
-     */
     const grip = input.brake ? this.config.driftGrip : this.config.lateralGrip;
     const correction = clamp(grip * deltaTime, 0, 1);
 
@@ -158,15 +191,16 @@ export class CarMovementSystem {
 
     const reverseDirection = forwardSpeed >= 0 ? 1 : -1;
 
-    /**
-     * Positive steering means "turn right".
-     * Our yaw convention needs negative yaw for a right turn.
-     */
+    const driftScale = car.isDrifting ? this.config.driftTurnMultiplier : 1;
+    const boostScale = car.isBoosting ? this.config.boostTurnPenalty : 1;
+
     const targetAngularVelocity =
       -input.steering *
       reverseDirection *
       this.config.turnSpeed *
-      turnControl;
+      turnControl *
+      driftScale *
+      boostScale;
 
     car.angularVelocity = moveTowards(
       car.angularVelocity,
@@ -183,6 +217,24 @@ export class CarMovementSystem {
     }
 
     car.yaw += car.angularVelocity * deltaTime;
+  }
+
+  private applyVisualLean(
+    car: CarEntity,
+    input: CarInputCommand,
+    deltaTime: number,
+  ): void {
+    const leanAmount = car.isDrifting
+      ? this.config.visualDriftLeanAmount
+      : this.config.visualLeanAmount;
+
+    const targetRoll = -input.steering * leanAmount;
+    const targetPitch = car.isBoosting ? -0.08 : 0;
+
+    const alpha = 1 - Math.exp(-12 * deltaTime);
+
+    car.visualRoll = lerp(car.visualRoll, targetRoll, alpha);
+    car.visualPitch = lerp(car.visualPitch, targetPitch, alpha);
   }
 
   private integratePosition(car: CarEntity, deltaTime: number): void {
@@ -209,6 +261,10 @@ function moveTowards(current: number, target: number, maxDelta: number): number 
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
+}
+
+function lerp(from: number, to: number, alpha: number): number {
+  return from + (to - from) * alpha;
 }
 
 function normalizeAngle(angle: number): number {

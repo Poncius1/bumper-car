@@ -18,8 +18,15 @@ export interface RuntimeCarTuning {
 
   lateralGrip: number;
   driftGrip: number;
+  driftTurnMultiplier: number;
+  driftSpeedRetention: number;
 
   boostMultiplier: number;
+  boostTurnPenalty: number;
+  boostMinSpeed: number;
+
+  visualLeanAmount: number;
+  visualDriftLeanAmount: number;
 }
 
 export interface RuntimeThirdPersonCameraTuning {
@@ -86,8 +93,15 @@ export function createDefaultRuntimeTuning(): RuntimeTuning {
 
       lateralGrip: GAME_CONFIG.car.lateralGrip,
       driftGrip: GAME_CONFIG.car.driftGrip,
+      driftTurnMultiplier: GAME_CONFIG.car.driftTurnMultiplier,
+      driftSpeedRetention: GAME_CONFIG.car.driftSpeedRetention,
 
       boostMultiplier: GAME_CONFIG.car.boostMultiplier,
+      boostTurnPenalty: GAME_CONFIG.car.boostTurnPenalty,
+      boostMinSpeed: GAME_CONFIG.car.boostMinSpeed,
+
+      visualLeanAmount: GAME_CONFIG.car.visualLeanAmount,
+      visualDriftLeanAmount: GAME_CONFIG.car.visualDriftLeanAmount,
     },
 
     camera: {
