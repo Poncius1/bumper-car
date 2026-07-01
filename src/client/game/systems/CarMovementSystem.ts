@@ -1,16 +1,31 @@
+import * as THREE from 'three';
 import type { CarInputCommand } from '../../input/CarInputCommand';
 import type { CarEntity } from '../entities/CarEntity';
 
 export interface CarMovementConfig {
-  readonly acceleration: number;
-  readonly reverseAcceleration: number;
-  readonly brakeDeceleration: number;
-  readonly drag: number;
-  readonly maxForwardSpeed: number;
-  readonly maxReverseSpeed: number;
-  readonly turnSpeed: number;
-  readonly boostMultiplier: number;
+  mass: number;
+
+  acceleration: number;
+  reverseAcceleration: number;
+  brakeDeceleration: number;
+  drag: number;
+
+  maxForwardSpeed: number;
+  maxReverseSpeed: number;
+
+  turnSpeed: number;
+  steeringResponse: number;
+  angularDrag: number;
+  lowSpeedTurnFactor: number;
+
+  lateralGrip: number;
+  driftGrip: number;
+
+  boostMultiplier: number;
 }
+
+const TEMP_FORWARD = new THREE.Vector3();
+const TEMP_RIGHT = new THREE.Vector3();
 
 export class CarMovementSystem {
   private readonly config: CarMovementConfig;
@@ -20,49 +35,109 @@ export class CarMovementSystem {
   }
 
   public update(car: CarEntity, input: CarInputCommand, deltaTime: number): void {
-  car.beginSimulationStep();
+    car.beginSimulationStep();
+    car.mass = this.config.mass;
 
-  this.updateSpeed(car, input, deltaTime);
-  this.updateRotation(car, input, deltaTime);
-  this.updatePosition(car, deltaTime);
+    this.applyThrottle(car, input, deltaTime);
+    this.applyBrakingOrDrag(car, input, deltaTime);
+    this.clampForwardSpeed(car, input);
+    this.applyLateralGrip(car, input, deltaTime);
+    this.updateRotation(car, input, deltaTime);
+    this.integratePosition(car, deltaTime);
 
-  car.yaw = normalizeAngle(car.yaw);
-}
+    car.yaw = normalizeAngle(car.yaw);
+  }
 
-  private updateSpeed(
+  private applyThrottle(
     car: CarEntity,
     input: CarInputCommand,
     deltaTime: number,
   ): void {
-    if (input.brake) {
-      car.speed = moveTowards(
-        car.speed,
-        0,
-        this.config.brakeDeceleration * deltaTime,
-      );
-
-      return;
-    }
+    const forward = getForwardVector(car.yaw, TEMP_FORWARD);
 
     if (input.throttle > 0) {
-      const maxSpeed = input.boost
-        ? this.config.maxForwardSpeed * this.config.boostMultiplier
-        : this.config.maxForwardSpeed;
+      const acceleration = input.boost
+        ? this.config.acceleration * this.config.boostMultiplier
+        : this.config.acceleration;
 
-      car.speed += this.config.acceleration * deltaTime;
-      car.speed = Math.min(car.speed, maxSpeed);
-
+      car.velocity.addScaledVector(forward, acceleration * deltaTime);
       return;
     }
 
     if (input.throttle < 0) {
-      car.speed -= this.config.reverseAcceleration * deltaTime;
-      car.speed = Math.max(car.speed, -this.config.maxReverseSpeed);
+      car.velocity.addScaledVector(
+        forward,
+        -this.config.reverseAcceleration * deltaTime,
+      );
+    }
+  }
+
+  private applyBrakingOrDrag(
+    car: CarEntity,
+    input: CarInputCommand,
+    deltaTime: number,
+  ): void {
+    const forward = getForwardVector(car.yaw, TEMP_FORWARD);
+    const forwardSpeed = car.velocity.dot(forward);
+
+    if (input.brake) {
+      const nextForwardSpeed = moveTowards(
+        forwardSpeed,
+        0,
+        this.config.brakeDeceleration * deltaTime,
+      );
+
+      car.velocity.addScaledVector(forward, nextForwardSpeed - forwardSpeed);
 
       return;
     }
 
-    car.speed = moveTowards(car.speed, 0, this.config.drag * deltaTime);
+    if (input.throttle !== 0) {
+      return;
+    }
+
+    const dragFactor = Math.max(0, 1 - this.config.drag * deltaTime);
+    car.velocity.x *= dragFactor;
+    car.velocity.z *= dragFactor;
+  }
+
+  private clampForwardSpeed(car: CarEntity, input: CarInputCommand): void {
+    const forward = getForwardVector(car.yaw, TEMP_FORWARD);
+    const forwardSpeed = car.velocity.dot(forward);
+
+    const maxForwardSpeed = input.boost
+      ? this.config.maxForwardSpeed * this.config.boostMultiplier
+      : this.config.maxForwardSpeed;
+
+    if (forwardSpeed > maxForwardSpeed) {
+      car.velocity.addScaledVector(forward, maxForwardSpeed - forwardSpeed);
+      return;
+    }
+
+    if (forwardSpeed < -this.config.maxReverseSpeed) {
+      car.velocity.addScaledVector(
+        forward,
+        -this.config.maxReverseSpeed - forwardSpeed,
+      );
+    }
+  }
+
+  private applyLateralGrip(
+    car: CarEntity,
+    input: CarInputCommand,
+    deltaTime: number,
+  ): void {
+    const right = getRightVector(car.yaw, TEMP_RIGHT);
+    const lateralSpeed = car.velocity.dot(right);
+
+    /**
+     * Brake reduces lateral grip, allowing the car to slide.
+     * This is the first step toward an arcade drift/handbrake feel.
+     */
+    const grip = input.brake ? this.config.driftGrip : this.config.lateralGrip;
+    const correction = clamp(grip * deltaTime, 0, 1);
+
+    car.velocity.addScaledVector(right, -lateralSpeed * correction);
   }
 
   private updateRotation(
@@ -70,44 +145,58 @@ export class CarMovementSystem {
     input: CarInputCommand,
     deltaTime: number,
   ): void {
-    const normalizedSpeed = clamp(
-      Math.abs(car.speed) / this.config.maxForwardSpeed,
+    const forwardSpeed = car.forwardSpeed;
+    const speedRatio = clamp(
+      car.speed / Math.max(this.config.maxForwardSpeed, 0.001),
       0,
       1,
     );
 
-    if (normalizedSpeed <= 0.02) {
-      return;
+    const turnControl =
+      this.config.lowSpeedTurnFactor +
+      (1 - this.config.lowSpeedTurnFactor) * speedRatio;
+
+    const reverseDirection = forwardSpeed >= 0 ? 1 : -1;
+
+    /**
+     * Positive steering means "turn right".
+     * Our yaw convention needs negative yaw for a right turn.
+     */
+    const targetAngularVelocity =
+      -input.steering *
+      reverseDirection *
+      this.config.turnSpeed *
+      turnControl;
+
+    car.angularVelocity = moveTowards(
+      car.angularVelocity,
+      targetAngularVelocity,
+      this.config.steeringResponse * deltaTime,
+    );
+
+    if (input.steering === 0) {
+      car.angularVelocity = moveTowards(
+        car.angularVelocity,
+        0,
+        this.config.angularDrag * deltaTime,
+      );
     }
 
-    /**
-     * When reversing, steering should feel inverted, like a real car.
-     * This makes the placeholder feel closer to an actual vehicle.
-     */
-    const direction = car.speed >= 0 ? 1 : -1;
-    const turnAmount =
-      input.steering *
-      direction *
-      this.config.turnSpeed *
-      normalizedSpeed *
-      deltaTime;
-
-    car.yaw -= turnAmount;
+    car.yaw += car.angularVelocity * deltaTime;
   }
 
-  private updatePosition(car: CarEntity, deltaTime: number): void {
-    /**
-     * In our convention:
-     * - Y is up
-     * - XZ is the arena plane
-     * - the car's visual front points toward local -Z
-     */
-    const forwardX = -Math.sin(car.yaw);
-    const forwardZ = -Math.cos(car.yaw);
-
-    car.position.x += forwardX * car.speed * deltaTime;
-    car.position.z += forwardZ * car.speed * deltaTime;
+  private integratePosition(car: CarEntity, deltaTime: number): void {
+    car.position.addScaledVector(car.velocity, deltaTime);
+    car.position.y = 0;
   }
+}
+
+function getForwardVector(yaw: number, target: THREE.Vector3): THREE.Vector3 {
+  return target.set(-Math.sin(yaw), 0, -Math.cos(yaw));
+}
+
+function getRightVector(yaw: number, target: THREE.Vector3): THREE.Vector3 {
+  return target.set(Math.cos(yaw), 0, -Math.sin(yaw));
 }
 
 function moveTowards(current: number, target: number, maxDelta: number): number {

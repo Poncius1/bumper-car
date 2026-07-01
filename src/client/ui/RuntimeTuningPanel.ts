@@ -1,5 +1,4 @@
 import type {
-  RuntimeCameraTuning,
   RuntimeCarTuning,
   RuntimeIsometricCameraTuning,
   RuntimeStaticArenaCameraTuning,
@@ -78,9 +77,19 @@ export class RuntimeTuningPanel {
 function createCarSection(tuning: RuntimeCarTuning): HTMLElement {
   return createSection('Car Controller', [
     {
+      label: 'Mass',
+      min: 0.25,
+      max: 5,
+      step: 0.05,
+      getValue: () => tuning.mass,
+      setValue: (value) => {
+        tuning.mass = value;
+      },
+    },
+    {
       label: 'Acceleration',
       min: 1,
-      max: 40,
+      max: 60,
       step: 0.5,
       getValue: () => tuning.acceleration,
       setValue: (value) => {
@@ -90,7 +99,7 @@ function createCarSection(tuning: RuntimeCarTuning): HTMLElement {
     {
       label: 'Reverse Accel',
       min: 1,
-      max: 30,
+      max: 40,
       step: 0.5,
       getValue: () => tuning.reverseAcceleration,
       setValue: (value) => {
@@ -100,7 +109,7 @@ function createCarSection(tuning: RuntimeCarTuning): HTMLElement {
     {
       label: 'Brake Decel',
       min: 1,
-      max: 50,
+      max: 70,
       step: 0.5,
       getValue: () => tuning.brakeDeceleration,
       setValue: (value) => {
@@ -120,7 +129,7 @@ function createCarSection(tuning: RuntimeCarTuning): HTMLElement {
     {
       label: 'Max Speed',
       min: 1,
-      max: 30,
+      max: 40,
       step: 0.5,
       getValue: () => tuning.maxForwardSpeed,
       setValue: (value) => {
@@ -130,7 +139,7 @@ function createCarSection(tuning: RuntimeCarTuning): HTMLElement {
     {
       label: 'Reverse Speed',
       min: 1,
-      max: 15,
+      max: 20,
       step: 0.5,
       getValue: () => tuning.maxReverseSpeed,
       setValue: (value) => {
@@ -140,11 +149,61 @@ function createCarSection(tuning: RuntimeCarTuning): HTMLElement {
     {
       label: 'Turn Speed',
       min: 0.5,
-      max: 12,
+      max: 20,
       step: 0.1,
       getValue: () => tuning.turnSpeed,
       setValue: (value) => {
         tuning.turnSpeed = value;
+      },
+    },
+    {
+      label: 'Steer Response',
+      min: 1,
+      max: 50,
+      step: 0.5,
+      getValue: () => tuning.steeringResponse,
+      setValue: (value) => {
+        tuning.steeringResponse = value;
+      },
+    },
+    {
+      label: 'Angular Drag',
+      min: 0,
+      max: 50,
+      step: 0.5,
+      getValue: () => tuning.angularDrag,
+      setValue: (value) => {
+        tuning.angularDrag = value;
+      },
+    },
+    {
+      label: 'Low Speed Turn',
+      min: 0,
+      max: 1,
+      step: 0.01,
+      getValue: () => tuning.lowSpeedTurnFactor,
+      setValue: (value) => {
+        tuning.lowSpeedTurnFactor = value;
+      },
+    },
+    {
+      label: 'Lateral Grip',
+      min: 0,
+      max: 25,
+      step: 0.25,
+      getValue: () => tuning.lateralGrip,
+      setValue: (value) => {
+        tuning.lateralGrip = value;
+      },
+    },
+    {
+      label: 'Drift Grip',
+      min: 0,
+      max: 15,
+      step: 0.25,
+      getValue: () => tuning.driftGrip,
+      setValue: (value) => {
+        tuning.driftGrip = value;
       },
     },
     {
@@ -224,7 +283,7 @@ function createTopDownCameraSection(
     {
       label: 'Height',
       min: 5,
-      max: 60,
+      max: 80,
       step: 0.5,
       getValue: () => tuning.height,
       setValue: (value) => {
@@ -261,7 +320,7 @@ function createIsometricCameraSection(
     {
       label: 'Distance',
       min: 4,
-      max: 40,
+      max: 60,
       step: 0.5,
       getValue: () => tuning.distance,
       setValue: (value) => {
@@ -271,7 +330,7 @@ function createIsometricCameraSection(
     {
       label: 'Height',
       min: 3,
-      max: 30,
+      max: 50,
       step: 0.5,
       getValue: () => tuning.height,
       setValue: (value) => {
@@ -327,8 +386,8 @@ function createStaticArenaCameraSection(
   return createSection('Static Arena Camera', [
     {
       label: 'Pos X',
-      min: -60,
-      max: 60,
+      min: -80,
+      max: 80,
       step: 0.5,
       getValue: () => tuning.positionX,
       setValue: (value) => {
@@ -338,7 +397,7 @@ function createStaticArenaCameraSection(
     {
       label: 'Pos Y',
       min: 2,
-      max: 80,
+      max: 100,
       step: 0.5,
       getValue: () => tuning.positionY,
       setValue: (value) => {
@@ -347,8 +406,8 @@ function createStaticArenaCameraSection(
     },
     {
       label: 'Pos Z',
-      min: -60,
-      max: 60,
+      min: -80,
+      max: 80,
       step: 0.5,
       getValue: () => tuning.positionZ,
       setValue: (value) => {
@@ -357,8 +416,8 @@ function createStaticArenaCameraSection(
     },
     {
       label: 'Look X',
-      min: -30,
-      max: 30,
+      min: -50,
+      max: 50,
       step: 0.5,
       getValue: () => tuning.lookAtX,
       setValue: (value) => {
@@ -368,7 +427,7 @@ function createStaticArenaCameraSection(
     {
       label: 'Look Y',
       min: -10,
-      max: 20,
+      max: 30,
       step: 0.5,
       getValue: () => tuning.lookAtY,
       setValue: (value) => {
@@ -377,8 +436,8 @@ function createStaticArenaCameraSection(
     },
     {
       label: 'Look Z',
-      min: -30,
-      max: 30,
+      min: -50,
+      max: 50,
       step: 0.5,
       getValue: () => tuning.lookAtZ,
       setValue: (value) => {

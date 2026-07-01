@@ -5,14 +5,25 @@ export const GAME_CONFIG = {
   },
 
   car: {
-    acceleration: 12,
-    reverseAcceleration: 7,
+    mass: 1,
+
+    acceleration: 22,
+    reverseAcceleration: 10,
     brakeDeceleration: 18,
-    drag: 5,
-    maxForwardSpeed: 7,
-    maxReverseSpeed: 3,
-    turnSpeed: 2.7,
-    boostMultiplier: 1.35,
+    drag: 2.4,
+
+    maxForwardSpeed: 13,
+    maxReverseSpeed: 5,
+
+    turnSpeed: 5.4,
+    steeringResponse: 18,
+    angularDrag: 16,
+    lowSpeedTurnFactor: 0.42,
+
+    lateralGrip: 7.5,
+    driftGrip: 1.8,
+
+    boostMultiplier: 2.1,
   },
 
   camera: {

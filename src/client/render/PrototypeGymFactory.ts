@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 
 const GYM_CONFIG = {
-  floorSize: 100,
-  playableAreaSize: 42,
+  floorSize: 160,
+  playableAreaSize: 90,
 
   floorColor: 0xc8c8c8,
   boundaryColor: 0x9ca3af,
@@ -18,16 +18,15 @@ export interface PrototypeGym {
 }
 
 /**
- * Creates a gameplay testing gym.
+ * Creates a larger gameplay testing gym.
  *
- * This is not a final arena. It is a development space for testing:
+ * The goal is to keep enough empty space for tuning:
  * - acceleration
  * - braking
- * - boost feel
+ * - boost
  * - drift
- * - camera behavior
- * - future collision response
- * - future knockback/impulses
+ * - camera modes
+ * - future collision tests
  */
 export function createPrototypeGym(): PrototypeGym {
   const group = new THREE.Group();
@@ -41,7 +40,6 @@ export function createPrototypeGym(): PrototypeGym {
   group.add(createBrakeTestZone());
   group.add(createSlalomObstacles());
   group.add(createCrashDummies());
-  group.add(createWallTestSection());
 
   return {
     group,
@@ -74,8 +72,8 @@ function createPlayableAreaFrame(): THREE.Group {
 
   const size = GYM_CONFIG.playableAreaSize;
   const halfSize = size / 2;
-  const wallThickness = 0.35;
-  const wallHeight = 0.45;
+  const wallThickness = 0.25;
+  const wallHeight = 0.18;
 
   const material = new THREE.MeshStandardMaterial({
     color: GYM_CONFIG.boundaryColor,
@@ -136,18 +134,18 @@ function createSpawnMarker(): THREE.Group {
 
   const forwardLine = createBox({
     name: 'SpawnForwardLine',
-    width: 0.12,
+    width: 0.15,
     height: 0.03,
-    depth: 3,
+    depth: 4,
     material,
   });
-  forwardLine.position.set(0, 0.035, -1.5);
+  forwardLine.position.set(0, 0.035, -2);
 
   const sideLine = createBox({
     name: 'SpawnSideLine',
-    width: 1.6,
+    width: 2,
     height: 0.03,
-    depth: 0.12,
+    depth: 0.15,
     material,
   });
   sideLine.position.set(0, 0.035, 0);
@@ -158,7 +156,7 @@ function createSpawnMarker(): THREE.Group {
 }
 
 function createCenterMarker(): THREE.Mesh {
-  const geometry = new THREE.CylinderGeometry(1.4, 1.4, 0.025, 48);
+  const geometry = new THREE.CylinderGeometry(2, 2, 0.025, 64);
 
   const material = new THREE.MeshStandardMaterial({
     color: 0xb8b8b8,
@@ -186,30 +184,30 @@ function createBoostLane(): THREE.Group {
 
   const laneSurface = createBox({
     name: 'BoostLaneSurface',
-    width: 3,
+    width: 5,
     height: 0.025,
-    depth: 16,
+    depth: 28,
     material,
   });
-  laneSurface.position.set(-12, 0.025, 0);
+  laneSurface.position.set(-28, 0.025, 0);
 
   const startMarker = createBox({
     name: 'BoostLaneStartMarker',
-    width: 3.2,
+    width: 5.2,
     height: 0.05,
-    depth: 0.25,
+    depth: 0.35,
     material,
   });
-  startMarker.position.set(-12, 0.055, 8);
+  startMarker.position.set(-28, 0.055, 14);
 
   const endMarker = createBox({
     name: 'BoostLaneEndMarker',
-    width: 3.2,
+    width: 5.2,
     height: 0.05,
-    depth: 0.25,
+    depth: 0.35,
     material,
   });
-  endMarker.position.set(-12, 0.055, -8);
+  endMarker.position.set(-28, 0.055, -14);
 
   lane.add(laneSurface, startMarker, endMarker);
 
@@ -228,30 +226,30 @@ function createBrakeTestZone(): THREE.Group {
 
   const surface = createBox({
     name: 'BrakeZoneSurface',
-    width: 12,
+    width: 20,
     height: 0.025,
-    depth: 4,
+    depth: 8,
     material,
   });
-  surface.position.set(8, 0.025, 12);
+  surface.position.set(24, 0.025, 24);
 
   const leftMarker = createBox({
     name: 'BrakeZoneLeftMarker',
-    width: 0.2,
+    width: 0.25,
     height: 0.05,
-    depth: 4,
+    depth: 8,
     material,
   });
-  leftMarker.position.set(2, 0.055, 12);
+  leftMarker.position.set(14, 0.055, 24);
 
   const rightMarker = createBox({
     name: 'BrakeZoneRightMarker',
-    width: 0.2,
+    width: 0.25,
     height: 0.05,
-    depth: 4,
+    depth: 8,
     material,
   });
-  rightMarker.position.set(14, 0.055, 12);
+  rightMarker.position.set(34, 0.055, 24);
 
   zone.add(surface, leftMarker, rightMarker);
 
@@ -269,24 +267,24 @@ function createSlalomObstacles(): THREE.Group {
   });
 
   const positions = [
-    new THREE.Vector3(6, 0, -12),
-    new THREE.Vector3(10, 0, -9),
-    new THREE.Vector3(6, 0, -6),
-    new THREE.Vector3(10, 0, -3),
-    new THREE.Vector3(6, 0, 0),
+    new THREE.Vector3(18, 0, -30),
+    new THREE.Vector3(26, 0, -24),
+    new THREE.Vector3(18, 0, -18),
+    new THREE.Vector3(26, 0, -12),
+    new THREE.Vector3(18, 0, -6),
   ];
 
   for (let index = 0; index < positions.length; index += 1) {
     const obstacle = createBox({
       name: `SlalomBlock_${index + 1}`,
-      width: 1.2,
-      height: 1.2,
-      depth: 1.2,
+      width: 1.6,
+      height: 1.6,
+      depth: 1.6,
       material,
     });
 
     obstacle.position.copy(positions[index]);
-    obstacle.position.y = 0.6;
+    obstacle.position.y = 0.8;
 
     slalom.add(obstacle);
   }
@@ -299,11 +297,12 @@ function createCrashDummies(): THREE.Group {
   dummies.name = 'CrashDummyTest';
 
   const positions = [
-    new THREE.Vector3(-4, 0, -8),
-    new THREE.Vector3(0, 0, -10),
-    new THREE.Vector3(4, 0, -8),
-    new THREE.Vector3(-3, 0, 7),
-    new THREE.Vector3(3, 0, 7),
+    new THREE.Vector3(-18, 0, -28),
+    new THREE.Vector3(-8, 0, -32),
+    new THREE.Vector3(2, 0, -28),
+    new THREE.Vector3(-18, 0, 24),
+    new THREE.Vector3(-8, 0, 30),
+    new THREE.Vector3(2, 0, 24),
   ];
 
   for (let index = 0; index < positions.length; index += 1) {
@@ -362,41 +361,6 @@ function createCrashDummy(name: string): THREE.Group {
   dummy.add(base, body, head);
 
   return dummy;
-}
-
-function createWallTestSection(): THREE.Group {
-  const section = new THREE.Group();
-  section.name = 'WallBounceTestSection';
-
-  const material = new THREE.MeshStandardMaterial({
-    color: 0x64748b,
-    roughness: 0.8,
-    metalness: 0,
-  });
-
-  const wallA = createBox({
-    name: 'AngledWall_A',
-    width: 8,
-    height: 1,
-    depth: 0.45,
-    material,
-  });
-  wallA.position.set(-10, 0.5, -14);
-  wallA.rotation.y = Math.PI / 7;
-
-  const wallB = createBox({
-    name: 'AngledWall_B',
-    width: 8,
-    height: 1,
-    depth: 0.45,
-    material,
-  });
-  wallB.position.set(-16, 0.5, -8);
-  wallB.rotation.y = -Math.PI / 5;
-
-  section.add(wallA, wallB);
-
-  return section;
 }
 
 interface BoxOptions {

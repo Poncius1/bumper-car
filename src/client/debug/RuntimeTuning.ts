@@ -1,13 +1,24 @@
 import { GAME_CONFIG } from '../app/GameConfig';
 
 export interface RuntimeCarTuning {
+  mass: number;
+
   acceleration: number;
   reverseAcceleration: number;
   brakeDeceleration: number;
   drag: number;
+
   maxForwardSpeed: number;
   maxReverseSpeed: number;
+
   turnSpeed: number;
+  steeringResponse: number;
+  angularDrag: number;
+  lowSpeedTurnFactor: number;
+
+  lateralGrip: number;
+  driftGrip: number;
+
   boostMultiplier: number;
 }
 
@@ -58,15 +69,27 @@ export interface RuntimeTuning {
 export function createDefaultRuntimeTuning(): RuntimeTuning {
   return {
     car: {
+      mass: GAME_CONFIG.car.mass,
+
       acceleration: GAME_CONFIG.car.acceleration,
       reverseAcceleration: GAME_CONFIG.car.reverseAcceleration,
       brakeDeceleration: GAME_CONFIG.car.brakeDeceleration,
       drag: GAME_CONFIG.car.drag,
+
       maxForwardSpeed: GAME_CONFIG.car.maxForwardSpeed,
       maxReverseSpeed: GAME_CONFIG.car.maxReverseSpeed,
+
       turnSpeed: GAME_CONFIG.car.turnSpeed,
+      steeringResponse: GAME_CONFIG.car.steeringResponse,
+      angularDrag: GAME_CONFIG.car.angularDrag,
+      lowSpeedTurnFactor: GAME_CONFIG.car.lowSpeedTurnFactor,
+
+      lateralGrip: GAME_CONFIG.car.lateralGrip,
+      driftGrip: GAME_CONFIG.car.driftGrip,
+
       boostMultiplier: GAME_CONFIG.car.boostMultiplier,
     },
+
     camera: {
       thirdPerson: {
         distance: GAME_CONFIG.camera.thirdPerson.distance,

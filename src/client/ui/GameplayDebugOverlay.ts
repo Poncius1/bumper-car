@@ -9,8 +9,13 @@ interface DebugPosition {
 
 interface DebugCarState {
   readonly position: DebugPosition;
+  readonly velocity: DebugPosition;
   readonly speed: number;
+  readonly forwardSpeed: number;
+  readonly lateralSpeed: number;
   readonly yaw: number;
+  readonly angularVelocity: number;
+  readonly mass: number;
 }
 
 export interface GameplayDebugOverlayData {
@@ -55,14 +60,29 @@ export class GameplayDebugOverlay {
       </section>
 
       <section class="gameplay-debug-overlay__section">
-        <span>Car Position</span>
+        <span>Position</span>
         <strong>${formatVector3(data.car.position)}</strong>
+
+        <span>Velocity</span>
+        <strong>${formatVector3(data.car.velocity)}</strong>
 
         <span>Speed</span>
         <strong>${data.car.speed.toFixed(2)}</strong>
 
+        <span>Forward Speed</span>
+        <strong>${data.car.forwardSpeed.toFixed(2)}</strong>
+
+        <span>Lateral Speed</span>
+        <strong>${data.car.lateralSpeed.toFixed(2)}</strong>
+
         <span>Yaw</span>
         <strong>${radiansToDegrees(data.car.yaw).toFixed(1)}°</strong>
+
+        <span>Angular Vel</span>
+        <strong>${data.car.angularVelocity.toFixed(2)}</strong>
+
+        <span>Mass</span>
+        <strong>${data.car.mass.toFixed(2)}</strong>
       </section>
 
       <section class="gameplay-debug-overlay__section">
