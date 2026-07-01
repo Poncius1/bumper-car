@@ -1,21 +1,21 @@
 import * as THREE from 'three';
-import type { RuntimeThirdPersonCameraTuning } from '../debug/RuntimeTuning';
+import type { RuntimeIsometricCameraTuning } from '../debug/RuntimeTuning';
 import type { CameraController } from './CameraController';
 import type { CameraTarget } from './CameraTarget';
 
-export interface ThirdPersonCarCameraOptions {
+export interface IsometricCarCameraOptions {
   readonly camera: THREE.PerspectiveCamera;
-  readonly tuning: RuntimeThirdPersonCameraTuning;
+  readonly tuning: RuntimeIsometricCameraTuning;
 }
 
-export class ThirdPersonCarCamera implements CameraController {
-  public readonly mode = 'thirdPersonCar' as const;
+export class IsometricCarCamera implements CameraController {
+  public readonly mode = 'isometricCar' as const;
 
   private readonly camera: THREE.PerspectiveCamera;
-  private readonly tuning: RuntimeThirdPersonCameraTuning;
+  private readonly tuning: RuntimeIsometricCameraTuning;
   private readonly currentLookAt = new THREE.Vector3();
 
-  public constructor(options: ThirdPersonCarCameraOptions) {
+  public constructor(options: IsometricCarCameraOptions) {
     this.camera = options.camera;
     this.tuning = options.tuning;
   }
@@ -36,6 +36,8 @@ export class ThirdPersonCarCamera implements CameraController {
 
     this.camera.position.lerp(desiredPosition, positionAlpha);
     this.currentLookAt.lerp(desiredLookAt, lookAtAlpha);
+
+    this.camera.up.set(0, 1, 0);
     this.camera.lookAt(this.currentLookAt);
   }
 
@@ -45,16 +47,20 @@ export class ThirdPersonCarCamera implements CameraController {
 
     this.camera.position.copy(desiredPosition);
     this.currentLookAt.copy(desiredLookAt);
+
+    this.camera.up.set(0, 1, 0);
     this.camera.lookAt(this.currentLookAt);
   }
 
   private getDesiredPosition(target: CameraTarget): THREE.Vector3 {
-    const forward = getForwardVector(target.yaw);
+    const angle = degreesToRadians(this.tuning.angleDegrees);
+    const offsetX = Math.sin(angle) * this.tuning.distance;
+    const offsetZ = Math.cos(angle) * this.tuning.distance;
 
     return new THREE.Vector3(
-      target.position.x - forward.x * this.tuning.distance,
+      target.position.x + offsetX,
       target.position.y + this.tuning.height,
-      target.position.z - forward.z * this.tuning.distance,
+      target.position.z + offsetZ,
     );
   }
 
@@ -67,8 +73,8 @@ export class ThirdPersonCarCamera implements CameraController {
   }
 }
 
-function getForwardVector(yaw: number): THREE.Vector3 {
-  return new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
+function degreesToRadians(degrees: number): number {
+  return degrees * (Math.PI / 180);
 }
 
 function getSmoothingAlpha(smoothing: number, deltaTime: number): number {

@@ -1,6 +1,12 @@
 import { GAME_CONFIG } from './GameConfig';
 import { GameLoop } from './GameLoop';
+import type { CameraMode } from '../camera/CameraController';
+import { CameraSystem } from '../camera/CameraSystem';
+import type { CameraTarget } from '../camera/CameraTarget';
+import { IsometricCarCamera } from '../camera/IsometricCarCamera';
+import { StaticArenaCamera } from '../camera/StaticArenaCamera';
 import { ThirdPersonCarCamera } from '../camera/ThirdPersonCarCamera';
+import { TopDownCarCamera } from '../camera/TopDownCarCamera';
 import {
   createDefaultRuntimeTuning,
   type RuntimeTuning,
@@ -28,7 +34,7 @@ export class GameApp {
 
   private readonly localPlayerCar: CarEntity;
   private readonly carMovementSystem: CarMovementSystem;
-  private readonly cameraController: ThirdPersonCarCamera;
+  private readonly cameraSystem: CameraSystem;
   private readonly carVisualFactory: CarVisualFactory;
 
   public constructor(root: HTMLElement) {
@@ -61,20 +67,34 @@ export class GameApp {
 
     this.carMovementSystem = new CarMovementSystem(this.runtimeTuning.car);
 
-    this.cameraController = new ThirdPersonCarCamera({
-      camera: scene.camera,
-      tuning: this.runtimeTuning.camera,
-    });
+    this.cameraSystem = new CameraSystem(
+      [
+        new ThirdPersonCarCamera({
+          camera: scene.camera,
+          tuning: this.runtimeTuning.camera.thirdPerson,
+        }),
+        new TopDownCarCamera({
+          camera: scene.camera,
+          tuning: this.runtimeTuning.camera.topDown,
+        }),
+        new IsometricCarCamera({
+          camera: scene.camera,
+          tuning: this.runtimeTuning.camera.isometric,
+        }),
+        new StaticArenaCamera({
+          camera: scene.camera,
+          tuning: this.runtimeTuning.camera.staticArena,
+        }),
+      ],
+      'thirdPersonCar',
+    );
 
-    this.cameraController.snapToTarget(this.localPlayerCar);
+    this.cameraSystem.update(this.getCameraTarget(), 1);
+
+    window.addEventListener('keydown', this.handleCameraModeKeyDown);
 
     this.carVisualFactory = new CarVisualFactory();
 
-    /**
-     * Load the real prototype model asynchronously.
-     *
-     * The placeholder car remains visible until the GLB is loaded.
-     */
     void this.loadPrototypeCarModel();
 
     this.loop = new GameLoop(
@@ -97,6 +117,8 @@ export class GameApp {
   public dispose(): void {
     this.loop.stop();
 
+    window.removeEventListener('keydown', this.handleCameraModeKeyDown);
+
     this.carVisualFactory.dispose();
     this.runtimeTuningPanel.dispose();
     this.gameplayDebugOverlay.dispose();
@@ -110,12 +132,6 @@ export class GameApp {
         modelUrl: '/assets/models/cars/bumperCar.glb',
       });
 
-      /**
-       * Keep the gameplay root, but replace its temporary children.
-       *
-       * This preserves movement/camera logic because CarEntity still controls
-       * the same root Object3D.
-       */
       this.localPlayerCar.visual.clear();
       this.localPlayerCar.visual.add(model);
     } catch (error) {
@@ -137,33 +153,62 @@ export class GameApp {
     deltaTime: number,
     interpolationAlpha: number,
   ): void => {
-    /**
-     * Smooth visual transform between fixed simulation steps.
-     */
     this.localPlayerCar.syncVisual(interpolationAlpha);
 
-    /**
-     * Camera follows the interpolated render transform, not the raw simulation
-     * transform. This helps reduce perceived jitter.
-     */
-    this.cameraController.update(
-      {
-        position: this.localPlayerCar.renderPosition,
-        yaw: this.localPlayerCar.renderYaw,
-      },
-      deltaTime,
-    );
+    this.cameraSystem.update(this.getCameraTarget(), deltaTime);
 
     this.gameplayDebugOverlay.update({
       deltaTime,
       fixedTimeStep: GAME_CONFIG.simulation.fixedTimeStep,
       car: this.localPlayerCar,
       input: this.inputSystem.getCurrentCommand(),
-      cameraMode: this.cameraController.mode,
+      cameraMode: this.cameraSystem.mode,
     });
   };
 
   private readonly render = (): void => {
     this.renderer.render();
   };
+
+  private getCameraTarget(): CameraTarget {
+    return {
+      position: this.localPlayerCar.renderPosition,
+      yaw: this.localPlayerCar.renderYaw,
+    };
+  }
+
+  private readonly handleCameraModeKeyDown = (event: KeyboardEvent): void => {
+    const mode = getCameraModeFromKeyboardEvent(event);
+
+    if (mode) {
+      this.cameraSystem.setMode(mode, this.getCameraTarget());
+      return;
+    }
+
+    if (event.code === 'KeyC') {
+      this.cameraSystem.nextMode(this.getCameraTarget());
+    }
+  };
+}
+
+function getCameraModeFromKeyboardEvent(
+  event: KeyboardEvent,
+): CameraMode | null {
+  if (event.code === 'Digit1') {
+    return 'thirdPersonCar';
+  }
+
+  if (event.code === 'Digit2') {
+    return 'topDownCar';
+  }
+
+  if (event.code === 'Digit3') {
+    return 'isometricCar';
+  }
+
+  if (event.code === 'Digit4') {
+    return 'staticArena';
+  }
+
+  return null;
 }

@@ -29,6 +29,12 @@ const PROTOTYPE_CAR_MODEL_CONFIG = {
   groundOffset: 0,
 } as const;
 
+const PROTOTYPE_CAR_MATERIAL_CONFIG = {
+  bodyColor: 0x2563eb,
+  roughness: 0.42,
+  metalness: 0.18,
+} as const;
+
 export interface CarVisualFactoryOptions {
   readonly modelUrl: string;
 }
@@ -99,20 +105,11 @@ function prepareModelMaterials(root: THREE.Object3D): void {
     child.castShadow = true;
     child.receiveShadow = true;
 
-    /**
-     * Useful while prototyping:
-     * If the model has flat-looking materials, this keeps it visible
-     * with our simple lighting setup.
-     */
-    if (Array.isArray(child.material)) {
-      for (const material of child.material) {
-        material.needsUpdate = true;
-      }
-
-      return;
-    }
-
-    child.material.needsUpdate = true;
+    child.material = new THREE.MeshStandardMaterial({
+      color: PROTOTYPE_CAR_MATERIAL_CONFIG.bodyColor,
+      roughness: PROTOTYPE_CAR_MATERIAL_CONFIG.roughness,
+      metalness: PROTOTYPE_CAR_MATERIAL_CONFIG.metalness,
+    });
   });
 }
 

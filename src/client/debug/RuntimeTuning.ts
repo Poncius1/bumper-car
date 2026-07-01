@@ -11,12 +11,43 @@ export interface RuntimeCarTuning {
   boostMultiplier: number;
 }
 
-export interface RuntimeCameraTuning {
+export interface RuntimeThirdPersonCameraTuning {
   distance: number;
   height: number;
   lookAtHeight: number;
   positionSmoothing: number;
   lookAtSmoothing: number;
+}
+
+export interface RuntimeTopDownCameraTuning {
+  height: number;
+  lookAtHeight: number;
+  positionSmoothing: number;
+}
+
+export interface RuntimeIsometricCameraTuning {
+  distance: number;
+  height: number;
+  angleDegrees: number;
+  lookAtHeight: number;
+  positionSmoothing: number;
+  lookAtSmoothing: number;
+}
+
+export interface RuntimeStaticArenaCameraTuning {
+  positionX: number;
+  positionY: number;
+  positionZ: number;
+  lookAtX: number;
+  lookAtY: number;
+  lookAtZ: number;
+}
+
+export interface RuntimeCameraTuning {
+  readonly thirdPerson: RuntimeThirdPersonCameraTuning;
+  readonly topDown: RuntimeTopDownCameraTuning;
+  readonly isometric: RuntimeIsometricCameraTuning;
+  readonly staticArena: RuntimeStaticArenaCameraTuning;
 }
 
 export interface RuntimeTuning {
@@ -37,11 +68,34 @@ export function createDefaultRuntimeTuning(): RuntimeTuning {
       boostMultiplier: GAME_CONFIG.car.boostMultiplier,
     },
     camera: {
-      distance: GAME_CONFIG.camera.distance,
-      height: GAME_CONFIG.camera.height,
-      lookAtHeight: GAME_CONFIG.camera.lookAtHeight,
-      positionSmoothing: GAME_CONFIG.camera.positionSmoothing,
-      lookAtSmoothing: GAME_CONFIG.camera.lookAtSmoothing,
+      thirdPerson: {
+        distance: GAME_CONFIG.camera.thirdPerson.distance,
+        height: GAME_CONFIG.camera.thirdPerson.height,
+        lookAtHeight: GAME_CONFIG.camera.thirdPerson.lookAtHeight,
+        positionSmoothing: GAME_CONFIG.camera.thirdPerson.positionSmoothing,
+        lookAtSmoothing: GAME_CONFIG.camera.thirdPerson.lookAtSmoothing,
+      },
+      topDown: {
+        height: GAME_CONFIG.camera.topDown.height,
+        lookAtHeight: GAME_CONFIG.camera.topDown.lookAtHeight,
+        positionSmoothing: GAME_CONFIG.camera.topDown.positionSmoothing,
+      },
+      isometric: {
+        distance: GAME_CONFIG.camera.isometric.distance,
+        height: GAME_CONFIG.camera.isometric.height,
+        angleDegrees: GAME_CONFIG.camera.isometric.angleDegrees,
+        lookAtHeight: GAME_CONFIG.camera.isometric.lookAtHeight,
+        positionSmoothing: GAME_CONFIG.camera.isometric.positionSmoothing,
+        lookAtSmoothing: GAME_CONFIG.camera.isometric.lookAtSmoothing,
+      },
+      staticArena: {
+        positionX: GAME_CONFIG.camera.staticArena.positionX,
+        positionY: GAME_CONFIG.camera.staticArena.positionY,
+        positionZ: GAME_CONFIG.camera.staticArena.positionZ,
+        lookAtX: GAME_CONFIG.camera.staticArena.lookAtX,
+        lookAtY: GAME_CONFIG.camera.staticArena.lookAtY,
+        lookAtZ: GAME_CONFIG.camera.staticArena.lookAtZ,
+      },
     },
   };
 }

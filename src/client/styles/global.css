@@ -193,3 +193,11 @@ canvas {
 .runtime-tuning-panel__row input[type="range"] {
   width: 100%;
 }
+.runtime-tuning-panel__hint {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  color: rgba(15, 23, 42, 0.78);
+  background: rgba(59, 130, 246, 0.08);
+  font-size: 12px;
+}
