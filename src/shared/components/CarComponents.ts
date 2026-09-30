@@ -28,9 +28,6 @@ export interface CarStateComponent {
   isBoosting: boolean;
 
   slipRatio: number;
-
-  visualRoll: number;
-  visualPitch: number;
 }
 
 export interface CarControllerDefaults {
@@ -91,10 +88,6 @@ export function createCarStateComponent(): CarStateComponent {
   return {
     isDrifting: false,
     isBoosting: false,
-
     slipRatio: 0,
-
-    visualRoll: 0,
-    visualPitch: 0,
   };
 }
