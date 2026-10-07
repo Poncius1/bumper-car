@@ -1,14 +1,9 @@
 import { GAME_CONFIG } from './GameConfig';
 import { GameLoop } from './GameLoop';
 
-import type { CameraMode } from '../camera/CameraController';
 import { CameraSystem } from '../camera/CameraSystem';
 import type { CameraTarget } from '../camera/CameraTarget';
-
-import { IsometricCarCamera } from '../camera/IsometricCarCamera';
-import { StaticArenaCamera } from '../camera/StaticArenaCamera';
 import { ThirdPersonCarCamera } from '../camera/ThirdPersonCarCamera';
-import { TopDownCarCamera } from '../camera/TopDownCarCamera';
 
 import {
   createDefaultRuntimeTuning,
@@ -72,34 +67,27 @@ export class GameApp {
     this.root = root;
     this.root.classList.add('game-root');
 
-    const scene =
-      createBumperCarScene();
+    const scene = createBumperCarScene();
 
-    this.runtimeTuning =
-      createDefaultRuntimeTuning();
+    this.runtimeTuning = createDefaultRuntimeTuning();
 
-    this.world =
-      new GameWorld();
+    this.world = new GameWorld();
 
-    this.gameComponents =
-      createGameComponents(
-        this.world,
-      );
+    this.gameComponents = createGameComponents(
+      this.world,
+    );
 
-    this.clientComponents =
-      createClientComponents(
-        this.world,
-      );
+    this.clientComponents = createClientComponents(
+      this.world,
+    );
 
-    this.renderer =
-      new ThreeRenderer({
-        root: this.root,
-        scene: scene.scene,
-        camera: scene.camera,
-      });
+    this.renderer = new ThreeRenderer({
+      root: this.root,
+      scene: scene.scene,
+      camera: scene.camera,
+    });
 
-    this.inputSystem =
-      new InputSystem();
+    this.inputSystem = new InputSystem();
 
     this.inputSystem.addSource(
       new KeyboardInputSource(),
@@ -116,26 +104,19 @@ export class GameApp {
         this.runtimeTuning,
       );
 
-    const localPlayer =
-      createLocalCarEntity({
-        world:
-          this.world,
+    const localPlayer = createLocalCarEntity({
+      world: this.world,
 
-        gameComponents:
-          this.gameComponents,
+      gameComponents: this.gameComponents,
 
-        clientComponents:
-          this.clientComponents,
+      clientComponents: this.clientComponents,
 
-        visual:
-          scene.localPlayerCar,
+      visual: scene.localPlayerCar,
 
-        mass:
-          this.runtimeTuning.car.mass,
+      mass: this.runtimeTuning.car.mass,
 
-        controller:
-          this.runtimeTuning.car,
-      });
+      controller: this.runtimeTuning.car,
+    });
 
     this.localPlayerEntityId =
       localPlayer.entityId;
@@ -145,47 +126,23 @@ export class GameApp {
         this.gameComponents,
       );
 
-    this.cameraSystem =
-      new CameraSystem(
-        [
-          new ThirdPersonCarCamera({
-            camera:
-              scene.camera,
-
-            tuning:
-              this.runtimeTuning.camera
-                .thirdPerson,
-          }),
-
-          new TopDownCarCamera({
-            camera:
-              scene.camera,
-
-            tuning:
-              this.runtimeTuning.camera
-                .topDown,
-          }),
-
-          new IsometricCarCamera({
-            camera:
-              scene.camera,
-
-            tuning:
-              this.runtimeTuning.camera
-                .isometric,
-          }),
-
-          new StaticArenaCamera({
-            camera:
-              scene.camera,
-
-            tuning:
-              this.runtimeTuning.camera
-                .staticArena,
-          }),
-        ],
-        'thirdPersonCar',
-      );
+    /*
+     * CameraSystem remains generic, but gameplay currently
+     * registers only the third-person camera.
+     *
+     * Later the same system can support menu, spectator,
+     * lobby or cinematic camera controllers.
+     */
+    this.cameraSystem = new CameraSystem(
+      [
+        new ThirdPersonCarCamera({
+          camera: scene.camera,
+          tuning:
+            this.runtimeTuning.camera.thirdPerson,
+        }),
+      ],
+      'thirdPersonCar',
+    );
 
     this.updateCarPresentation(
       1,
@@ -197,38 +154,25 @@ export class GameApp {
       1,
     );
 
-    window.addEventListener(
-      'keydown',
-      this.handleCameraModeKeyDown,
-    );
-
     this.carVisualFactory =
       new CarVisualFactory();
 
     void this.loadPrototypeCarModel();
 
-    this.loop =
-      new GameLoop(
-        {
-          fixedUpdate:
-            this.fixedUpdate,
+    this.loop = new GameLoop(
+      {
+        fixedUpdate: this.fixedUpdate,
+        update: this.update,
+        render: this.render,
+      },
+      {
+        fixedTimeStep:
+          GAME_CONFIG.simulation.fixedTimeStep,
 
-          update:
-            this.update,
-
-          render:
-            this.render,
-        },
-        {
-          fixedTimeStep:
-            GAME_CONFIG.simulation
-              .fixedTimeStep,
-
-          maxAccumulatedTime:
-            GAME_CONFIG.simulation
-              .maxAccumulatedTime,
-        },
-      );
+        maxAccumulatedTime:
+          GAME_CONFIG.simulation.maxAccumulatedTime,
+      },
+    );
   }
 
   public start(): void {
@@ -237,11 +181,6 @@ export class GameApp {
 
   public dispose(): void {
     this.loop.stop();
-
-    window.removeEventListener(
-      'keydown',
-      this.handleCameraModeKeyDown,
-    );
 
     this.carVisualFactory.dispose();
 
@@ -289,23 +228,20 @@ export class GameApp {
     this.copyInputToEcs();
 
     /*
-     * Runtime tuning's mass is not part of CarControllerComponent,
-     * so keep the Motion component synchronized explicitly.
+     * Mass currently lives in MotionComponent.
+     * Keep it synchronized with runtime tuning until Rapier
+     * becomes the authoritative physics implementation.
      */
     const motion =
       this.gameComponents.motions.require(
         this.localPlayerEntityId,
       );
 
-    motion.mass =
-      Math.max(
-        this.runtimeTuning.car.mass,
-        0.001,
-      );
+    motion.mass = Math.max(
+      this.runtimeTuning.car.mass,
+      0.001,
+    );
 
-    /*
-     * Gameplay simulation now runs entirely through ECS.
-     */
     this.carControllerSystem.update(
       fixedDeltaTime,
     );
@@ -345,20 +281,12 @@ export class GameApp {
         this.localPlayerEntityId,
       );
 
-    input.throttle =
-      command.throttle;
+    input.throttle = command.throttle;
+    input.steering = command.steering;
+    input.brake = command.brake;
+    input.boost = command.boost;
 
-    input.steering =
-      command.steering;
-
-    input.brake =
-      command.brake;
-
-    input.boost =
-      command.boost;
-
-    input.tick =
-      this.simulationTick;
+    input.tick = this.simulationTick;
   }
 
   private updateCarPresentation(
@@ -410,12 +338,11 @@ export class GameApp {
       ),
     );
 
-    presentation.renderYaw =
-      lerpAngle(
-        transform.previousYaw,
-        transform.yaw,
-        interpolationAlpha,
-      );
+    presentation.renderYaw = lerpAngle(
+      transform.previousYaw,
+      transform.yaw,
+      interpolationAlpha,
+    );
 
     const leanAmount =
       state.isDrifting
@@ -437,7 +364,10 @@ export class GameApp {
       1 -
       Math.exp(
         -12 *
-        Math.max(deltaTime, 0),
+          Math.max(
+            deltaTime,
+            0,
+          ),
       );
 
     presentation.visualRoll =
@@ -531,38 +461,26 @@ export class GameApp {
       deltaTime,
 
       fixedTimeStep:
-        GAME_CONFIG.simulation
-          .fixedTimeStep,
+        GAME_CONFIG.simulation.fixedTimeStep,
 
       car: {
         position: {
-          x:
-            transform.positionX,
-
-          y:
-            transform.positionY,
-
-          z:
-            transform.positionZ,
+          x: transform.positionX,
+          y: transform.positionY,
+          z: transform.positionZ,
         },
 
         velocity: {
-          x:
-            motion.velocityX,
-
-          y:
-            motion.velocityY,
-
-          z:
-            motion.velocityZ,
+          x: motion.velocityX,
+          y: motion.velocityY,
+          z: motion.velocityZ,
         },
 
         speed,
         forwardSpeed,
         lateralSpeed,
 
-        yaw:
-          transform.yaw,
+        yaw: transform.yaw,
 
         angularVelocity:
           motion.angularVelocity,
@@ -601,62 +519,6 @@ export class GameApp {
         presentation.renderYaw,
     };
   }
-
-  private readonly handleCameraModeKeyDown = (
-    event: KeyboardEvent,
-  ): void => {
-    const mode =
-      getCameraModeFromKeyboardEvent(
-        event,
-      );
-
-    if (mode) {
-      this.cameraSystem.setMode(
-        mode,
-        this.getCameraTarget(),
-      );
-
-      return;
-    }
-
-    if (
-      event.code === 'KeyC'
-    ) {
-      this.cameraSystem.nextMode(
-        this.getCameraTarget(),
-      );
-    }
-  };
-}
-
-function getCameraModeFromKeyboardEvent(
-  event: KeyboardEvent,
-): CameraMode | null {
-  if (
-    event.code === 'Digit1'
-  ) {
-    return 'thirdPersonCar';
-  }
-
-  if (
-    event.code === 'Digit2'
-  ) {
-    return 'topDownCar';
-  }
-
-  if (
-    event.code === 'Digit3'
-  ) {
-    return 'isometricCar';
-  }
-
-  if (
-    event.code === 'Digit4'
-  ) {
-    return 'staticArena';
-  }
-
-  return null;
 }
 
 function lerp(
@@ -664,14 +526,7 @@ function lerp(
   to: number,
   alpha: number,
 ): number {
-  return (
-    from +
-    (
-      to -
-      from
-    ) *
-      alpha
-  );
+  return from + (to - from) * alpha;
 }
 
 function lerpAngle(
@@ -681,15 +536,10 @@ function lerpAngle(
 ): number {
   const difference =
     normalizeAngle(
-      to -
-      from,
+      to - from,
     );
 
-  return (
-    from +
-    difference *
-      alpha
-  );
+  return from + difference * alpha;
 }
 
 function normalizeAngle(

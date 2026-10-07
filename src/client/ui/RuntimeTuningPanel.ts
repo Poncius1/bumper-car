@@ -1,9 +1,6 @@
 import type {
   RuntimeCarTuning,
-  RuntimeIsometricCameraTuning,
-  RuntimeStaticArenaCameraTuning,
   RuntimeThirdPersonCameraTuning,
-  RuntimeTopDownCameraTuning,
   RuntimeTuning,
 } from '../debug/RuntimeTuning';
 
@@ -67,9 +64,6 @@ export class RuntimeTuningPanel {
       hint,
       createCarSection(this.tuning.car),
       createThirdPersonCameraSection(this.tuning.camera.thirdPerson),
-      createTopDownCameraSection(this.tuning.camera.topDown),
-      createIsometricCameraSection(this.tuning.camera.isometric),
-      createStaticArenaCameraSection(this.tuning.camera.staticArena),
     );
   }
 }
@@ -331,177 +325,6 @@ function createThirdPersonCameraSection(
       getValue: () => tuning.lookAtSmoothing,
       setValue: (value) => {
         tuning.lookAtSmoothing = value;
-      },
-    },
-  ]);
-}
-
-function createTopDownCameraSection(
-  tuning: RuntimeTopDownCameraTuning,
-): HTMLElement {
-  return createSection('Top Down Camera', [
-    {
-      label: 'Height',
-      min: 5,
-      max: 80,
-      step: 0.5,
-      getValue: () => tuning.height,
-      setValue: (value) => {
-        tuning.height = value;
-      },
-    },
-    {
-      label: 'Look Height',
-      min: 0,
-      max: 5,
-      step: 0.1,
-      getValue: () => tuning.lookAtHeight,
-      setValue: (value) => {
-        tuning.lookAtHeight = value;
-      },
-    },
-    {
-      label: 'Pos Smooth',
-      min: 1,
-      max: 40,
-      step: 0.5,
-      getValue: () => tuning.positionSmoothing,
-      setValue: (value) => {
-        tuning.positionSmoothing = value;
-      },
-    },
-  ]);
-}
-
-function createIsometricCameraSection(
-  tuning: RuntimeIsometricCameraTuning,
-): HTMLElement {
-  return createSection('Isometric Camera', [
-    {
-      label: 'Distance',
-      min: 4,
-      max: 60,
-      step: 0.5,
-      getValue: () => tuning.distance,
-      setValue: (value) => {
-        tuning.distance = value;
-      },
-    },
-    {
-      label: 'Height',
-      min: 3,
-      max: 50,
-      step: 0.5,
-      getValue: () => tuning.height,
-      setValue: (value) => {
-        tuning.height = value;
-      },
-    },
-    {
-      label: 'Angle',
-      min: 0,
-      max: 360,
-      step: 1,
-      getValue: () => tuning.angleDegrees,
-      setValue: (value) => {
-        tuning.angleDegrees = value;
-      },
-    },
-    {
-      label: 'Look Height',
-      min: 0,
-      max: 5,
-      step: 0.1,
-      getValue: () => tuning.lookAtHeight,
-      setValue: (value) => {
-        tuning.lookAtHeight = value;
-      },
-    },
-    {
-      label: 'Pos Smooth',
-      min: 1,
-      max: 40,
-      step: 0.5,
-      getValue: () => tuning.positionSmoothing,
-      setValue: (value) => {
-        tuning.positionSmoothing = value;
-      },
-    },
-    {
-      label: 'Look Smooth',
-      min: 1,
-      max: 40,
-      step: 0.5,
-      getValue: () => tuning.lookAtSmoothing,
-      setValue: (value) => {
-        tuning.lookAtSmoothing = value;
-      },
-    },
-  ]);
-}
-
-function createStaticArenaCameraSection(
-  tuning: RuntimeStaticArenaCameraTuning,
-): HTMLElement {
-  return createSection('Static Arena Camera', [
-    {
-      label: 'Pos X',
-      min: -80,
-      max: 80,
-      step: 0.5,
-      getValue: () => tuning.positionX,
-      setValue: (value) => {
-        tuning.positionX = value;
-      },
-    },
-    {
-      label: 'Pos Y',
-      min: 2,
-      max: 100,
-      step: 0.5,
-      getValue: () => tuning.positionY,
-      setValue: (value) => {
-        tuning.positionY = value;
-      },
-    },
-    {
-      label: 'Pos Z',
-      min: -80,
-      max: 80,
-      step: 0.5,
-      getValue: () => tuning.positionZ,
-      setValue: (value) => {
-        tuning.positionZ = value;
-      },
-    },
-    {
-      label: 'Look X',
-      min: -50,
-      max: 50,
-      step: 0.5,
-      getValue: () => tuning.lookAtX,
-      setValue: (value) => {
-        tuning.lookAtX = value;
-      },
-    },
-    {
-      label: 'Look Y',
-      min: -10,
-      max: 30,
-      step: 0.5,
-      getValue: () => tuning.lookAtY,
-      setValue: (value) => {
-        tuning.lookAtY = value;
-      },
-    },
-    {
-      label: 'Look Z',
-      min: -50,
-      max: 50,
-      step: 0.5,
-      getValue: () => tuning.lookAtZ,
-      setValue: (value) => {
-        tuning.lookAtZ = value;
       },
     },
   ]);
