@@ -21,6 +21,7 @@ export const GAME_CONFIG = {
     lowSpeedTurnFactor: 0.58,
 
     lateralGrip: 8.5,
+
     driftGrip: 0.85,
     driftTurnMultiplier: 1.55,
     driftSpeedRetention: 0.92,
@@ -33,6 +34,16 @@ export const GAME_CONFIG = {
     visualDriftLeanAmount: 0.22,
   },
 
+  boost: {
+    maxEnergy: 100,
+
+    drainPerSecond: 35,
+
+    rechargePerSecond: 20,
+
+    rechargeDelay: 1,
+  },
+
   camera: {
     thirdPerson: {
       distance: 7,
@@ -41,6 +52,5 @@ export const GAME_CONFIG = {
       positionSmoothing: 8,
       lookAtSmoothing: 12,
     },
-    
   },
 } as const;

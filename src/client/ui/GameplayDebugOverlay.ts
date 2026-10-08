@@ -10,23 +10,42 @@ interface DebugPosition {
 interface DebugCarState {
   readonly position: DebugPosition;
   readonly velocity: DebugPosition;
+
   readonly speed: number;
   readonly forwardSpeed: number;
   readonly lateralSpeed: number;
+
   readonly yaw: number;
   readonly angularVelocity: number;
+
   readonly mass: number;
+
   readonly isDrifting: boolean;
   readonly isBoosting: boolean;
+
   readonly slipRatio: number;
+}
+
+interface DebugBoostState {
+  readonly energy: number;
+  readonly maxEnergy: number;
+
+  readonly rechargeDelayRemaining: number;
 }
 
 export interface GameplayDebugOverlayData {
   readonly deltaTime: number;
   readonly fixedTimeStep: number;
+
   readonly car: DebugCarState;
+
+  readonly boost: DebugBoostState;
+
   readonly input: CarInputCommand;
+
   readonly cameraMode: CameraMode;
+
+  readonly physicsDebugVisible: boolean;
 }
 
 export class GameplayDebugOverlay {
@@ -36,15 +55,37 @@ export class GameplayDebugOverlay {
   private frameCount = 0;
   private displayedFps = 0;
 
-  public constructor(parent: HTMLElement) {
-    this.root = document.createElement('div');
-    this.root.className = 'gameplay-debug-overlay';
+  public constructor(
+    parent: HTMLElement,
+  ) {
+    this.root =
+      document.createElement(
+        'div',
+      );
 
-    parent.appendChild(this.root);
+    this.root.className =
+      'gameplay-debug-overlay';
+
+    parent.appendChild(
+      this.root,
+    );
   }
 
-  public update(data: GameplayDebugOverlayData): void {
-    this.updateFps(data.deltaTime);
+  public update(
+    data: GameplayDebugOverlayData,
+  ): void {
+    this.updateFps(
+      data.deltaTime,
+    );
+
+    const boostPercent =
+      data.boost.maxEnergy > 0
+        ? (
+            data.boost.energy /
+            data.boost.maxEnergy
+          ) *
+          100
+        : 0;
 
     this.root.innerHTML = `
       <header class="gameplay-debug-overlay__header">
@@ -92,14 +133,26 @@ export class GameplayDebugOverlay {
       </section>
 
       <section class="gameplay-debug-overlay__section">
-        <span>Camera</span>
-        <strong>${data.cameraMode}</strong>
-
         <span>Drifting</span>
         <strong>${data.car.isDrifting ? 'ON' : 'OFF'}</strong>
 
         <span>Boosting</span>
         <strong>${data.car.isBoosting ? 'ON' : 'OFF'}</strong>
+
+        <span>Boost Energy</span>
+        <strong>
+          ${data.boost.energy.toFixed(1)}
+          /
+          ${data.boost.maxEnergy.toFixed(1)}
+        </strong>
+
+        <span>Boost %</span>
+        <strong>${boostPercent.toFixed(1)}%</strong>
+
+        <span>Recharge Delay</span>
+        <strong>
+          ${data.boost.rechargeDelayRemaining.toFixed(2)} s
+        </strong>
 
         <span>Throttle</span>
         <strong>${data.input.throttle.toFixed(2)}</strong>
@@ -110,8 +163,21 @@ export class GameplayDebugOverlay {
         <span>Brake</span>
         <strong>${data.input.brake ? 'ON' : 'OFF'}</strong>
 
-        <span>Boost</span>
+        <span>Boost Input</span>
         <strong>${data.input.boost ? 'ON' : 'OFF'}</strong>
+      </section>
+
+      <section class="gameplay-debug-overlay__section">
+        <span>Camera</span>
+        <strong>${data.cameraMode}</strong>
+
+        <span>Physics Debug</span>
+        <strong>
+          ${data.physicsDebugVisible ? 'ON' : 'OFF'}
+        </strong>
+
+        <span>Physics Toggle</span>
+        <strong>F3</strong>
       </section>
     `;
   }
@@ -120,28 +186,56 @@ export class GameplayDebugOverlay {
     this.root.remove();
   }
 
-  private updateFps(deltaTime: number): void {
-    this.accumulatedTime += deltaTime;
+  private updateFps(
+    deltaTime: number,
+  ): void {
+    this.accumulatedTime +=
+      deltaTime;
+
     this.frameCount += 1;
 
-    if (this.accumulatedTime < 0.25) {
+    if (
+      this.accumulatedTime <
+      0.25
+    ) {
       return;
     }
 
-    this.displayedFps = Math.round(this.frameCount / this.accumulatedTime);
+    this.displayedFps =
+      Math.round(
+        this.frameCount /
+          this.accumulatedTime,
+      );
+
     this.accumulatedTime = 0;
     this.frameCount = 0;
   }
 }
 
-function milliseconds(seconds: number): string {
-  return (seconds * 1000).toFixed(2);
+function milliseconds(
+  seconds: number,
+): string {
+  return (
+    seconds *
+    1000
+  ).toFixed(2);
 }
 
-function radiansToDegrees(radians: number): number {
-  return radians * (180 / Math.PI);
+function radiansToDegrees(
+  radians: number,
+): number {
+  return (
+    radians *
+    (180 / Math.PI)
+  );
 }
 
-function formatVector3(position: DebugPosition): string {
-  return `${position.x.toFixed(2)}, ${position.y.toFixed(2)}, ${position.z.toFixed(2)}`;
+function formatVector3(
+  position: DebugPosition,
+): string {
+  return [
+    position.x.toFixed(2),
+    position.y.toFixed(2),
+    position.z.toFixed(2),
+  ].join(', ');
 }

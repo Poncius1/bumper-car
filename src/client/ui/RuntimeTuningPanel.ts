@@ -58,7 +58,6 @@ export class RuntimeTuningPanel {
 
     const hint = document.createElement('p');
     hint.className = 'runtime-tuning-panel__hint';
-    hint.textContent = 'Camera: 1 Third | 2 Top | 3 Iso | 4 Static | C Next';
 
     this.root.append(
       hint,

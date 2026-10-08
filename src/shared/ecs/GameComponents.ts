@@ -1,18 +1,38 @@
-import type { CarControllerComponent, CarStateComponent } from '../components/CarComponents';
+import type {
+  CarControllerComponent,
+  CarStateComponent,
+} from '../components/CarComponents';
+
+import type { BoostComponent } from '../components/BoostComponent';
+
 import type { MotionComponent } from '../components/MotionComponent';
+
 import type { PlayerInputComponent } from '../components/PlayerInputComponent';
+
 import type { TransformComponent } from '../components/TransformComponent';
+
 import type { ComponentStore } from './ComponentStore';
+
 import type { GameWorld } from './GameWorld';
 
 export interface GameComponents {
-  readonly transforms: ComponentStore<TransformComponent>;
-  readonly motions: ComponentStore<MotionComponent>;
+  readonly transforms:
+    ComponentStore<TransformComponent>;
 
-  readonly carControllers: ComponentStore<CarControllerComponent>;
-  readonly carStates: ComponentStore<CarStateComponent>;
+  readonly motions:
+    ComponentStore<MotionComponent>;
 
-  readonly playerInputs: ComponentStore<PlayerInputComponent>;
+  readonly carControllers:
+    ComponentStore<CarControllerComponent>;
+
+  readonly carStates:
+    ComponentStore<CarStateComponent>;
+
+  readonly playerInputs:
+    ComponentStore<PlayerInputComponent>;
+
+  readonly boosts:
+    ComponentStore<BoostComponent>;
 }
 
 export function createGameComponents(
@@ -33,5 +53,8 @@ export function createGameComponents(
 
     playerInputs:
       world.createComponentStore<PlayerInputComponent>(),
+
+    boosts:
+      world.createComponentStore<BoostComponent>(),
   };
 }

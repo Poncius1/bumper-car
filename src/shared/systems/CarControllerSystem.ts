@@ -140,16 +140,25 @@ function updateCarState(
   },
 ): void {
   const speed =
-    getHorizontalSpeed(motion);
+    getHorizontalSpeed(
+      motion,
+    );
 
   state.isDrifting =
     speed > 2.5 &&
     input.brake &&
-    Math.abs(input.steering) > 0.1;
+    Math.abs(
+      input.steering,
+    ) > 0.1;
 
-  state.isBoosting =
-    input.boost &&
-    input.throttle > 0;
+  /*
+   * IMPORTANT:
+   *
+   * isBoosting is NOT decided here anymore.
+   *
+   * BoostSystem owns that state because it validates
+   * whether enough boost energy exists.
+   */
 
   state.slipRatio =
     calculateSlipRatio(
@@ -157,7 +166,6 @@ function updateCarState(
       motion,
     );
 }
-
 function applyThrottle(
   transform: TransformComponent,
   motion: MotionComponent,

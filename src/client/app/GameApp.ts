@@ -1,3 +1,5 @@
+import * as THREE from 'three';
+
 import { GAME_CONFIG } from './GameConfig';
 import { GameLoop } from './GameLoop';
 
@@ -20,6 +22,8 @@ import { createLocalCarEntity } from '../game/factories/CarEntityFactory';
 import { InputSystem } from '../input/InputSystem';
 import { KeyboardInputSource } from '../input/KeyboardInputSource';
 
+import { RapierPhysicsWorld } from '../physics/RapierPhysicsWorld';
+
 import { CarVisualFactory } from '../render/CarVisualFactory';
 import { createBumperCarScene } from '../render/SceneFactory';
 import { ThreeRenderer } from '../render/ThreeRenderer';
@@ -35,6 +39,7 @@ import {
 import type { EntityId } from '../../shared/ecs/Entity';
 import { GameWorld } from '../../shared/ecs/GameWorld';
 
+import { BoostSystem } from '../../shared/systems/BoostSystem';
 import { CarControllerSystem } from '../../shared/systems/CarControllerSystem';
 
 export class GameApp {
@@ -46,48 +51,90 @@ export class GameApp {
   private readonly runtimeTuning: RuntimeTuning;
 
   private readonly world: GameWorld;
-  private readonly gameComponents: GameComponents;
-  private readonly clientComponents: ClientComponents;
 
-  private readonly inputSystem: InputSystem;
+  private readonly gameComponents:
+    GameComponents;
 
-  private readonly gameplayDebugOverlay: GameplayDebugOverlay;
-  private readonly runtimeTuningPanel: RuntimeTuningPanel;
+  private readonly clientComponents:
+    ClientComponents;
 
-  private readonly localPlayerEntityId: EntityId;
+  private readonly inputSystem:
+    InputSystem;
 
-  private readonly carControllerSystem: CarControllerSystem;
+  private readonly gameplayDebugOverlay:
+    GameplayDebugOverlay;
 
-  private readonly cameraSystem: CameraSystem;
-  private readonly carVisualFactory: CarVisualFactory;
+  private readonly runtimeTuningPanel:
+    RuntimeTuningPanel;
+
+  private readonly localPlayerEntityId:
+    EntityId;
+
+  private readonly boostSystem:
+    BoostSystem;
+
+  private readonly carControllerSystem:
+    CarControllerSystem;
+
+  private readonly cameraSystem:
+    CameraSystem;
+
+  private readonly carVisualFactory:
+    CarVisualFactory;
+
+  private physicsWorld:
+    RapierPhysicsWorld | null = null;
 
   private simulationTick = 0;
 
-  public constructor(root: HTMLElement) {
+  private physicsDebugVisible =
+    false;
+
+  private isDisposed =
+    false;
+
+  public constructor(
+    root: HTMLElement,
+  ) {
     this.root = root;
-    this.root.classList.add('game-root');
 
-    const scene = createBumperCarScene();
-
-    this.runtimeTuning = createDefaultRuntimeTuning();
-
-    this.world = new GameWorld();
-
-    this.gameComponents = createGameComponents(
-      this.world,
+    this.root.classList.add(
+      'game-root',
     );
 
-    this.clientComponents = createClientComponents(
-      this.world,
-    );
+    const scene =
+      createBumperCarScene();
 
-    this.renderer = new ThreeRenderer({
-      root: this.root,
-      scene: scene.scene,
-      camera: scene.camera,
-    });
+    this.runtimeTuning =
+      createDefaultRuntimeTuning();
 
-    this.inputSystem = new InputSystem();
+    this.world =
+      new GameWorld();
+
+    this.gameComponents =
+      createGameComponents(
+        this.world,
+      );
+
+    this.clientComponents =
+      createClientComponents(
+        this.world,
+      );
+
+    this.renderer =
+      new ThreeRenderer({
+        root:
+          this.root,
+
+        scene:
+          scene.scene,
+
+        camera:
+          scene.camera,
+      });
+
+    this.inputSystem =
+      new InputSystem();
 
     this.inputSystem.addSource(
       new KeyboardInputSource(),
@@ -104,45 +151,58 @@ export class GameApp {
         this.runtimeTuning,
       );
 
-    const localPlayer = createLocalCarEntity({
-      world: this.world,
+    const localPlayer =
+      createLocalCarEntity({
+        world:
+          this.world,
 
-      gameComponents: this.gameComponents,
+        gameComponents:
+          this.gameComponents,
 
-      clientComponents: this.clientComponents,
+        clientComponents:
+          this.clientComponents,
 
-      visual: scene.localPlayerCar,
+        visual:
+          scene.localPlayerCar,
 
-      mass: this.runtimeTuning.car.mass,
+        mass:
+          this.runtimeTuning.car.mass,
 
-      controller: this.runtimeTuning.car,
-    });
+        controller:
+          this.runtimeTuning.car,
+
+        boost:
+          GAME_CONFIG.boost,
+      });
 
     this.localPlayerEntityId =
       localPlayer.entityId;
+
+    this.boostSystem =
+      new BoostSystem(
+        this.gameComponents,
+      );
 
     this.carControllerSystem =
       new CarControllerSystem(
         this.gameComponents,
       );
 
-    /*
-     * CameraSystem remains generic, but gameplay currently
-     * registers only the third-person camera.
-     *
-     * Later the same system can support menu, spectator,
-     * lobby or cinematic camera controllers.
-     */
-    this.cameraSystem = new CameraSystem(
-      [
-        new ThirdPersonCarCamera({
-          camera: scene.camera,
-          tuning:
-            this.runtimeTuning.camera.thirdPerson,
-        }),
-      ],
-      'thirdPersonCar',
-    );
+    this.cameraSystem =
+      new CameraSystem(
+        [
+          new ThirdPersonCarCamera({
+            camera:
+              scene.camera,
+
+            tuning:
+              this.runtimeTuning
+                .camera
+                .thirdPerson,
+          }),
+        ],
+        'thirdPersonCar',
+      );
 
     this.updateCarPresentation(
       1,
@@ -159,20 +219,42 @@ export class GameApp {
 
     void this.loadPrototypeCarModel();
 
-    this.loop = new GameLoop(
-      {
-        fixedUpdate: this.fixedUpdate,
-        update: this.update,
-        render: this.render,
-      },
-      {
-        fixedTimeStep:
-          GAME_CONFIG.simulation.fixedTimeStep,
-
-        maxAccumulatedTime:
-          GAME_CONFIG.simulation.maxAccumulatedTime,
-      },
+    void this.initializePhysics(
+      scene.scene,
     );
+
+    /*
+     * F3 toggles the Rapier debug renderer.
+     */
+    window.addEventListener(
+      'keydown',
+      this.handleDebugKeyDown,
+    );
+
+    this.loop =
+      new GameLoop(
+        {
+          fixedUpdate:
+            this.fixedUpdate,
+
+          update:
+            this.update,
+
+          render:
+            this.render,
+        },
+        {
+          fixedTimeStep:
+            GAME_CONFIG
+              .simulation
+              .fixedTimeStep,
+
+          maxAccumulatedTime:
+            GAME_CONFIG
+              .simulation
+              .maxAccumulatedTime,
+        },
+      );
   }
 
   public start(): void {
@@ -180,11 +262,25 @@ export class GameApp {
   }
 
   public dispose(): void {
+    this.isDisposed =
+      true;
+
     this.loop.stop();
+
+    window.removeEventListener(
+      'keydown',
+      this.handleDebugKeyDown,
+    );
+
+    this.physicsWorld?.dispose();
+
+    this.physicsWorld =
+      null;
 
     this.carVisualFactory.dispose();
 
     this.runtimeTuningPanel.dispose();
+
     this.gameplayDebugOverlay.dispose();
 
     this.inputSystem.dispose();
@@ -192,6 +288,46 @@ export class GameApp {
     this.world.clear();
 
     this.renderer.dispose();
+  }
+
+  private async initializePhysics(
+    scene: THREE.Scene,
+  ): Promise<void> {
+    try {
+      const physicsWorld =
+        await RapierPhysicsWorld.create(
+          scene,
+          this.gameComponents,
+        );
+
+      if (
+        this.isDisposed
+      ) {
+        physicsWorld.dispose();
+
+        return;
+      }
+
+      physicsWorld.createCar(
+        this.localPlayerEntityId,
+      );
+
+      physicsWorld.setDebugVisible(
+        this.physicsDebugVisible,
+      );
+
+      this.physicsWorld =
+        physicsWorld;
+
+      console.info(
+        'Rapier physics initialized.',
+      );
+    } catch (error) {
+      console.error(
+        'Failed to initialize Rapier physics.',
+        error,
+      );
+    }
   }
 
   private async loadPrototypeCarModel(): Promise<void> {
@@ -203,13 +339,24 @@ export class GameApp {
               '/assets/models/cars/bumperCar.glb',
           });
 
+      if (
+        this.isDisposed
+      ) {
+        return;
+      }
+
       const renderable =
-        this.clientComponents.renderables.require(
-          this.localPlayerEntityId,
-        );
+        this.clientComponents
+          .renderables
+          .require(
+            this.localPlayerEntityId,
+          );
 
       renderable.object.clear();
-      renderable.object.add(model);
+
+      renderable.object.add(
+        model,
+      );
     } catch (error) {
       console.error(
         'Failed to load prototype car model.',
@@ -221,32 +368,62 @@ export class GameApp {
   private readonly fixedUpdate = (
     fixedDeltaTime: number,
   ): void => {
-    this.simulationTick += 1;
+    this.simulationTick +=
+      1;
 
+    /*
+     * 1. Read input.
+     */
     this.inputSystem.update();
 
     this.copyInputToEcs();
 
     /*
-     * Mass currently lives in MotionComponent.
-     * Keep it synchronized with runtime tuning until Rapier
-     * becomes the authoritative physics implementation.
+     * Keep mass synchronized while using
+     * the runtime tuning panel.
      */
     const motion =
-      this.gameComponents.motions.require(
-        this.localPlayerEntityId,
+      this.gameComponents
+        .motions
+        .require(
+          this.localPlayerEntityId,
+        );
+
+    motion.mass =
+      Math.max(
+        this.runtimeTuning
+          .car
+          .mass,
+
+        0.001,
       );
 
-    motion.mass = Math.max(
-      this.runtimeTuning.car.mass,
-      0.001,
+    /*
+     * 2. Validate boost stamina.
+     */
+    this.boostSystem.update(
+      fixedDeltaTime,
     );
 
+    /*
+     * 3. Calculate arcade movement.
+     */
     this.carControllerSystem.update(
       fixedDeltaTime,
     );
 
-    this.world.flushPendingEntityDestruction();
+    /*
+     * 4. Resolve collisions.
+     */
+    this.physicsWorld?.step(
+      fixedDeltaTime,
+    );
+
+    /*
+     * 5. Finish ECS destruction.
+     */
+    this.world
+      .flushPendingEntityDestruction();
   };
 
   private readonly update = (
@@ -263,30 +440,48 @@ export class GameApp {
       deltaTime,
     );
 
+    /*
+     * Update physics debug geometry before rendering.
+     */
+    this.physicsWorld
+      ?.updateDebugRender();
+
     this.updateDebugOverlay(
       deltaTime,
     );
   };
 
-  private readonly render = (): void => {
-    this.renderer.render();
-  };
+  private readonly render =
+    (): void => {
+      this.renderer.render();
+    };
 
   private copyInputToEcs(): void {
     const command =
-      this.inputSystem.getCurrentCommand();
+      this.inputSystem
+        .getCurrentCommand();
 
     const input =
-      this.gameComponents.playerInputs.require(
-        this.localPlayerEntityId,
-      );
+      this.gameComponents
+        .playerInputs
+        .require(
+          this.localPlayerEntityId,
+        );
 
-    input.throttle = command.throttle;
-    input.steering = command.steering;
-    input.brake = command.brake;
-    input.boost = command.boost;
+    input.throttle =
+      command.throttle;
 
-    input.tick = this.simulationTick;
+    input.steering =
+      command.steering;
+
+    input.brake =
+      command.brake;
+
+    input.boost =
+      command.boost;
+
+    input.tick =
+      this.simulationTick;
   }
 
   private updateCarPresentation(
@@ -294,29 +489,39 @@ export class GameApp {
     interpolationAlpha: number,
   ): void {
     const transform =
-      this.gameComponents.transforms.require(
-        this.localPlayerEntityId,
-      );
+      this.gameComponents
+        .transforms
+        .require(
+          this.localPlayerEntityId,
+        );
 
     const state =
-      this.gameComponents.carStates.require(
-        this.localPlayerEntityId,
-      );
+      this.gameComponents
+        .carStates
+        .require(
+          this.localPlayerEntityId,
+        );
 
     const input =
-      this.gameComponents.playerInputs.require(
-        this.localPlayerEntityId,
-      );
+      this.gameComponents
+        .playerInputs
+        .require(
+          this.localPlayerEntityId,
+        );
 
     const presentation =
-      this.clientComponents.carPresentations.require(
-        this.localPlayerEntityId,
-      );
+      this.clientComponents
+        .carPresentations
+        .require(
+          this.localPlayerEntityId,
+        );
 
     const renderable =
-      this.clientComponents.renderables.require(
-        this.localPlayerEntityId,
-      );
+      this.clientComponents
+        .renderables
+        .require(
+          this.localPlayerEntityId,
+        );
 
     presentation.renderPosition.set(
       lerp(
@@ -338,17 +543,21 @@ export class GameApp {
       ),
     );
 
-    presentation.renderYaw = lerpAngle(
-      transform.previousYaw,
-      transform.yaw,
-      interpolationAlpha,
-    );
+    presentation.renderYaw =
+      lerpAngle(
+        transform.previousYaw,
+        transform.yaw,
+        interpolationAlpha,
+      );
 
     const leanAmount =
       state.isDrifting
-        ? this.runtimeTuning.car
+        ? this.runtimeTuning
+            .car
             .visualDriftLeanAmount
-        : this.runtimeTuning.car
+
+        : this.runtimeTuning
+            .car
             .visualLeanAmount;
 
     const targetRoll =
@@ -402,22 +611,36 @@ export class GameApp {
     deltaTime: number,
   ): void {
     const transform =
-      this.gameComponents.transforms.require(
-        this.localPlayerEntityId,
-      );
+      this.gameComponents
+        .transforms
+        .require(
+          this.localPlayerEntityId,
+        );
 
     const motion =
-      this.gameComponents.motions.require(
-        this.localPlayerEntityId,
-      );
+      this.gameComponents
+        .motions
+        .require(
+          this.localPlayerEntityId,
+        );
 
     const state =
-      this.gameComponents.carStates.require(
-        this.localPlayerEntityId,
-      );
+      this.gameComponents
+        .carStates
+        .require(
+          this.localPlayerEntityId,
+        );
+
+    const boost =
+      this.gameComponents
+        .boosts
+        .require(
+          this.localPlayerEntityId,
+        );
 
     const input =
-      this.inputSystem.getCurrentCommand();
+      this.inputSystem
+        .getCurrentCommand();
 
     const speed =
       Math.hypot(
@@ -461,26 +684,41 @@ export class GameApp {
       deltaTime,
 
       fixedTimeStep:
-        GAME_CONFIG.simulation.fixedTimeStep,
+        GAME_CONFIG
+          .simulation
+          .fixedTimeStep,
 
       car: {
         position: {
-          x: transform.positionX,
-          y: transform.positionY,
-          z: transform.positionZ,
+          x:
+            transform.positionX,
+
+          y:
+            transform.positionY,
+
+          z:
+            transform.positionZ,
         },
 
         velocity: {
-          x: motion.velocityX,
-          y: motion.velocityY,
-          z: motion.velocityZ,
+          x:
+            motion.velocityX,
+
+          y:
+            motion.velocityY,
+
+          z:
+            motion.velocityZ,
         },
 
         speed,
+
         forwardSpeed,
+
         lateralSpeed,
 
-        yaw: transform.yaw,
+        yaw:
+          transform.yaw,
 
         angularVelocity:
           motion.angularVelocity,
@@ -498,18 +736,34 @@ export class GameApp {
           state.slipRatio,
       },
 
+      boost: {
+        energy:
+          boost.energy,
+
+        maxEnergy:
+          boost.maxEnergy,
+
+        rechargeDelayRemaining:
+          boost.rechargeDelayRemaining,
+      },
+
       input,
 
       cameraMode:
         this.cameraSystem.mode,
+
+      physicsDebugVisible:
+        this.physicsDebugVisible,
     });
   }
 
   private getCameraTarget(): CameraTarget {
     const presentation =
-      this.clientComponents.carPresentations.require(
-        this.localPlayerEntityId,
-      );
+      this.clientComponents
+        .carPresentations
+        .require(
+          this.localPlayerEntityId,
+        );
 
     return {
       position:
@@ -519,6 +773,30 @@ export class GameApp {
         presentation.renderYaw,
     };
   }
+
+  private readonly handleDebugKeyDown = (
+    event: KeyboardEvent,
+  ): void => {
+    if (
+      event.code !==
+      'F3'
+    ) {
+      return;
+    }
+
+    /*
+     * Prevent the browser's default F3 behavior where applicable.
+     */
+    event.preventDefault();
+
+    this.physicsDebugVisible =
+      !this.physicsDebugVisible;
+
+    this.physicsWorld
+      ?.setDebugVisible(
+        this.physicsDebugVisible,
+      );
+  };
 }
 
 function lerp(
@@ -526,7 +804,14 @@ function lerp(
   to: number,
   alpha: number,
 ): number {
-  return from + (to - from) * alpha;
+  return (
+    from +
+    (
+      to -
+      from
+    ) *
+      alpha
+  );
 }
 
 function lerpAngle(
@@ -536,10 +821,15 @@ function lerpAngle(
 ): number {
   const difference =
     normalizeAngle(
-      to - from,
+      to -
+        from,
     );
 
-  return from + difference * alpha;
+  return (
+    from +
+    difference *
+      alpha
+  );
 }
 
 function normalizeAngle(
