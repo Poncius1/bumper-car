@@ -5,11 +5,11 @@ import type { EntityId } from '../../shared/ecs/Entity';
 import type { GameComponents } from '../../shared/ecs/GameComponents';
 
 const CAR_COLLIDER = {
-  halfWidth: 0.72,
-  halfHeight: 0.45,
-  halfLength: 1.35,
+  halfWidth: 0.68,
+  halfHeight: 0.32,
+  halfLength: 1.25,
 
-  centerY: 0.45,
+  centerY: 0.34,
 
   friction: 0.35,
   restitution: 0.25,
@@ -29,29 +29,18 @@ interface CarPhysicsBody {
 
 export class RapierPhysicsWorld {
   private readonly world: RAPIER.World;
-
   private readonly components: GameComponents;
-
   private readonly scene: THREE.Scene;
 
   private readonly carBodies =
     new Map<EntityId, CarPhysicsBody>();
 
-  /*
-   * Rapier debug rendering.
-   *
-   * Rapier generates line vertices representing the actual
-   * collision geometry used by the physics simulation.
-   */
   private readonly debugGeometry =
     new THREE.BufferGeometry();
 
   private readonly debugMaterial =
     new THREE.LineBasicMaterial({
       vertexColors: true,
-      transparent: true,
-      opacity: 1,
-      depthTest: true,
     });
 
   private readonly debugLines =
@@ -74,15 +63,11 @@ export class RapierPhysicsWorld {
     this.debugLines.name =
       'RapierPhysicsDebug';
 
-    /*
-     * Debug geometry changes constantly, so don't let Three.js
-     * discard it because of an outdated bounding volume.
-     */
     this.debugLines.frustumCulled =
       false;
 
     this.debugLines.visible =
-      this.debugVisible;
+      false;
 
     this.scene.add(
       this.debugLines,
@@ -95,13 +80,6 @@ export class RapierPhysicsWorld {
   ): Promise<RapierPhysicsWorld> {
     await RAPIER.init();
 
-    /*
-     * For the current bumper-car prototype the gameplay
-     * happens on the XZ plane.
-     *
-     * Gravity remains disabled until we decide to support
-     * ramps, jumps or falling arenas.
-     */
     const world =
       new RAPIER.World({
         x: 0,
@@ -116,9 +94,7 @@ export class RapierPhysicsWorld {
         scene,
       );
 
-    physics.createStaticGymColliders(
-      scene,
-    );
+    physics.createStaticGymColliders();
 
     return physics;
   }
@@ -157,31 +133,30 @@ export class RapierPhysicsWorld {
         )
         .setRotation({
           x: 0,
-          y: Math.sin(halfYaw),
+          y: Math.sin(
+            halfYaw,
+          ),
           z: 0,
-          w: Math.cos(halfYaw),
+          w: Math.cos(
+            halfYaw,
+          ),
         })
-        /*
-         * Car stays on the arena plane.
-         */
         .enabledTranslations(
           true,
           false,
           true,
         )
-        /*
-         * Car can only rotate around Y.
-         */
         .enabledRotations(
           false,
           true,
           false,
         )
-        /*
-         * Helps prevent tunneling when using boost.
-         */
-        .setCcdEnabled(true)
-        .setCanSleep(false);
+        .setCcdEnabled(
+          true,
+        )
+        .setCanSleep(
+          false,
+        );
 
     const body =
       this.world.createRigidBody(
@@ -231,15 +206,33 @@ export class RapierPhysicsWorld {
     );
   }
 
+  public removeCar(
+    entityId: EntityId,
+  ): void {
+    const physicsBody =
+      this.carBodies.get(
+        entityId,
+      );
+
+    if (!physicsBody) {
+      return;
+    }
+
+    this.world.removeRigidBody(
+      physicsBody.body,
+    );
+
+    this.carBodies.delete(
+      entityId,
+    );
+  }
+
   public step(
     deltaTime: number,
   ): void {
     this.world.timestep =
       deltaTime;
 
-    /*
-     * Gameplay controller -> Rapier.
-     */
     for (
       const [
         entityId,
@@ -252,14 +245,8 @@ export class RapierPhysicsWorld {
       );
     }
 
-    /*
-     * Resolve physics and collisions.
-     */
     this.world.step();
 
-    /*
-     * Rapier -> ECS.
-     */
     for (
       const [
         entityId,
@@ -273,50 +260,6 @@ export class RapierPhysicsWorld {
     }
   }
 
-  public updateDebugRender(): void {
-    if (
-      !this.debugVisible
-    ) {
-      return;
-    }
-
-    const buffers =
-      this.world.debugRender();
-
-    /*
-     * Rapier returns the actual line vertices for all
-     * colliders currently registered in the physics world.
-     */
-    this.debugGeometry.setAttribute(
-      'position',
-      new THREE.BufferAttribute(
-        buffers.vertices,
-        3,
-      ),
-    );
-
-    /*
-     * Rapier's debug colors are RGBA.
-     */
-    this.debugGeometry.setAttribute(
-      'color',
-      new THREE.BufferAttribute(
-        buffers.colors,
-        4,
-      ),
-    );
-
-    this.debugGeometry
-      .getAttribute('position')
-      .needsUpdate = true;
-
-    this.debugGeometry
-      .getAttribute('color')
-      .needsUpdate = true;
-
-    this.debugGeometry.computeBoundingSphere();
-  }
-
   public setDebugVisible(
     visible: boolean,
   ): void {
@@ -326,12 +269,7 @@ export class RapierPhysicsWorld {
     this.debugLines.visible =
       visible;
 
-    /*
-     * Generate geometry immediately when debug becomes visible.
-     */
-    if (
-      visible
-    ) {
+    if (visible) {
       this.updateDebugRender();
     }
   }
@@ -340,12 +278,38 @@ export class RapierPhysicsWorld {
     return this.debugVisible;
   }
 
+  public updateDebugRender(): void {
+    if (!this.debugVisible) {
+      return;
+    }
+
+    const buffers =
+      this.world.debugRender();
+
+    this.debugGeometry.setAttribute(
+      'position',
+      new THREE.BufferAttribute(
+        buffers.vertices,
+        3,
+      ),
+    );
+
+    this.debugGeometry.setAttribute(
+      'color',
+      new THREE.BufferAttribute(
+        buffers.colors,
+        4,
+      ),
+    );
+  }
+
   public dispose(): void {
     this.scene.remove(
       this.debugLines,
     );
 
     this.debugGeometry.dispose();
+
     this.debugMaterial.dispose();
 
     this.carBodies.clear();
@@ -362,54 +326,38 @@ export class RapierPhysicsWorld {
         entityId,
       );
 
-    /*
-     * For this first integration CarControllerSystem still
-     * calculates the desired velocity.
-     *
-     * Rapier then resolves collision response.
-     */
     physicsBody.body.setLinvel(
       {
-        x: motion.velocityX,
-        y: 0,
-        z: motion.velocityZ,
+        x:
+          motion.velocityX,
+
+        y:
+          0,
+
+        z:
+          motion.velocityZ,
       },
       true,
     );
 
     physicsBody.body.setAngvel(
       {
-        x: 0,
-        y: motion.angularVelocity,
-        z: 0,
+        x:
+          0,
+
+        y:
+          motion.angularVelocity,
+
+        z:
+          0,
       },
       true,
     );
 
-    /*
-     * Runtime tuning may change mass.
-     * Only update Rapier if the value actually changed.
-     */
-    const mass =
-      Math.max(
-        motion.mass,
-        0.001,
-      );
-
-    if (
-      Math.abs(
-        mass -
-          physicsBody.lastMass,
-      ) >
-      0.0001
-    ) {
-      physicsBody.collider.setMass(
-        mass,
-      );
-
-      physicsBody.lastMass =
-        mass;
-    }
+    this.syncMass(
+      physicsBody,
+      motion.mass,
+    );
   }
 
   private pullBodyStateToGameplay(
@@ -465,18 +413,40 @@ export class RapierPhysicsWorld {
       angularVelocity.y;
   }
 
-  private createStaticGymColliders(
-    scene: THREE.Scene,
+  private syncMass(
+    physicsBody: CarPhysicsBody,
+    requestedMass: number,
   ): void {
-    /*
-     * We need current world transforms before calculating
-     * bounding boxes from Three.js objects.
-     */
-    scene.updateMatrixWorld(
+    const mass =
+      Math.max(
+        requestedMass,
+        0.001,
+      );
+
+    if (
+      Math.abs(
+        mass -
+          physicsBody.lastMass,
+      ) <=
+      0.0001
+    ) {
+      return;
+    }
+
+    physicsBody.collider.setMass(
+      mass,
+    );
+
+    physicsBody.lastMass =
+      mass;
+  }
+
+  private createStaticGymColliders(): void {
+    this.scene.updateMatrixWorld(
       true,
     );
 
-    scene.traverse(
+    this.scene.traverse(
       (object) => {
         if (
           !shouldCreateStaticCollider(
@@ -531,9 +501,14 @@ export class RapierPhysicsWorld {
 
     const collider =
       RAPIER.ColliderDesc.cuboid(
-        size.x * 0.5,
-        size.y * 0.5,
-        size.z * 0.5,
+        size.x *
+          0.5,
+
+        size.y *
+          0.5,
+
+        size.z *
+          0.5,
       )
         .setTranslation(
           center.x,
@@ -547,10 +522,6 @@ export class RapierPhysicsWorld {
           STATIC_COLLIDER.restitution,
         );
 
-    /*
-     * Collider without an attached dynamic rigid body behaves
-     * as static world geometry.
-     */
     this.world.createCollider(
       collider,
     );
@@ -560,32 +531,22 @@ export class RapierPhysicsWorld {
 function shouldCreateStaticCollider(
   objectName: string,
 ): boolean {
-  if (
-    objectName === 'NorthBoundary' ||
-    objectName === 'SouthBoundary' ||
-    objectName === 'EastBoundary' ||
-    objectName === 'WestBoundary'
-  ) {
-    return true;
-  }
-
-  if (
+  return (
+    objectName ===
+      'NorthBoundary' ||
+    objectName ===
+      'SouthBoundary' ||
+    objectName ===
+      'EastBoundary' ||
+    objectName ===
+      'WestBoundary' ||
     /^SlalomBlock_\d+$/.test(
       objectName,
-    )
-  ) {
-    return true;
-  }
-
-  if (
+    ) ||
     /^CrashDummy_\d+$/.test(
       objectName,
     )
-  ) {
-    return true;
-  }
-
-  return false;
+  );
 }
 
 function getYawFromQuaternion(

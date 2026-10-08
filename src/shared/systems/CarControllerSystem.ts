@@ -12,17 +12,16 @@ import type { GameComponents } from '../ecs/GameComponents';
 export class CarControllerSystem {
   private readonly components: GameComponents;
 
-  public constructor(components: GameComponents) {
+  public constructor(
+    components: GameComponents,
+  ) {
     this.components = components;
   }
 
-  public update(deltaTime: number): void {
-    for (
-      const [
-        entityId,
-        controller,
-      ] of this.components.carControllers.entries()
-    ) {
+  public update(
+    deltaTime: number,
+  ): void {
+    for (const [entityId, controller] of this.components.carControllers.entries()) {
       this.updateCar(
         entityId,
         controller,
@@ -36,27 +35,19 @@ export class CarControllerSystem {
     controller: CarControllerComponent,
     deltaTime: number,
   ): void {
-    const transform =
-      this.components.transforms.get(entityId);
+    const transform = this.components.transforms.get(entityId);
+    const motion = this.components.motions.get(entityId);
+    const input = this.components.playerInputs.get(entityId);
+    const state = this.components.carStates.get(entityId);
 
-    const motion =
-      this.components.motions.get(entityId);
-
-    const input =
-      this.components.playerInputs.get(entityId);
-
-    const state =
-      this.components.carStates.get(entityId);
-
-    if (
-      transform === undefined ||
-      motion === undefined ||
-      input === undefined ||
-      state === undefined
-    ) {
+    if (!transform || !motion || !input || !state) {
       return;
     }
 
+    /*
+     * Preserve the previous authoritative transform.
+     * Rapier writes the new transform after the physics step.
+     */
     beginTransformSimulationStep(transform);
 
     updateCarState(
@@ -75,7 +66,7 @@ export class CarControllerSystem {
       deltaTime,
     );
 
-    applyHandbrakeOrDrag(
+    applyBrakeOrDrag(
       transform,
       motion,
       input,
@@ -98,7 +89,7 @@ export class CarControllerSystem {
       deltaTime,
     );
 
-    updateRotation(
+    updateAngularVelocity(
       transform,
       motion,
       input,
@@ -108,24 +99,10 @@ export class CarControllerSystem {
       deltaTime,
     );
 
-    integratePosition(
+    state.slipRatio = calculateSlipRatio(
       transform,
       motion,
-      deltaTime,
     );
-
-    transform.yaw =
-      normalizeAngle(transform.yaw);
-
-    /*
-     * Recalculate slip after movement so debug/gameplay sees
-     * the current simulation state rather than the previous step.
-     */
-    state.slipRatio =
-      calculateSlipRatio(
-        transform,
-        motion,
-      );
   }
 }
 
@@ -139,33 +116,24 @@ function updateCarState(
     slipRatio: number;
   },
 ): void {
-  const speed =
-    getHorizontalSpeed(
-      motion,
-    );
+  const speed = getHorizontalSpeed(
+    motion,
+  );
 
   state.isDrifting =
     speed > 2.5 &&
     input.brake &&
-    Math.abs(
-      input.steering,
-    ) > 0.1;
+    Math.abs(input.steering) > 0.1;
 
   /*
-   * IMPORTANT:
-   *
-   * isBoosting is NOT decided here anymore.
-   *
-   * BoostSystem owns that state because it validates
-   * whether enough boost energy exists.
+   * isBoosting is owned by BoostSystem.
    */
-
-  state.slipRatio =
-    calculateSlipRatio(
-      transform,
-      motion,
-    );
+  state.slipRatio = calculateSlipRatio(
+    transform,
+    motion,
+  );
 }
+
 function applyThrottle(
   transform: TransformComponent,
   motion: MotionComponent,
@@ -174,23 +142,18 @@ function applyThrottle(
   isBoosting: boolean,
   deltaTime: number,
 ): void {
-  const sinYaw =
-    Math.sin(transform.yaw);
+  const forwardX = -Math.sin(
+    transform.yaw,
+  );
 
-  const cosYaw =
-    Math.cos(transform.yaw);
-
-  const forwardX =
-    -sinYaw;
-
-  const forwardZ =
-    -cosYaw;
+  const forwardZ = -Math.cos(
+    transform.yaw,
+  );
 
   if (input.throttle > 0) {
-    const boostScale =
-      isBoosting
-        ? controller.boostMultiplier
-        : 1;
+    const boostScale = isBoosting
+      ? controller.boostMultiplier
+      : 1;
 
     const acceleration =
       controller.acceleration *
@@ -226,22 +189,26 @@ function applyThrottle(
   }
 }
 
-function applyHandbrakeOrDrag(
+function applyBrakeOrDrag(
   transform: TransformComponent,
   motion: MotionComponent,
   input: PlayerInputComponent,
   controller: CarControllerComponent,
   deltaTime: number,
 ): void {
-  const forwardX =
-    -Math.sin(transform.yaw);
+  const forwardX = -Math.sin(
+    transform.yaw,
+  );
 
-  const forwardZ =
-    -Math.cos(transform.yaw);
+  const forwardZ = -Math.cos(
+    transform.yaw,
+  );
 
   const forwardSpeed =
-    motion.velocityX * forwardX +
-    motion.velocityZ * forwardZ;
+    motion.velocityX *
+      forwardX +
+    motion.velocityZ *
+      forwardZ;
 
   if (input.brake) {
     const targetForwardSpeed =
@@ -296,29 +263,29 @@ function clampForwardSpeed(
   controller: CarControllerComponent,
   isBoosting: boolean,
 ): void {
-  const forwardX =
-    -Math.sin(transform.yaw);
+  const forwardX = -Math.sin(
+    transform.yaw,
+  );
 
-  const forwardZ =
-    -Math.cos(transform.yaw);
+  const forwardZ = -Math.cos(
+    transform.yaw,
+  );
 
   const forwardSpeed =
-    motion.velocityX * forwardX +
-    motion.velocityZ * forwardZ;
+    motion.velocityX *
+      forwardX +
+    motion.velocityZ *
+      forwardZ;
 
-  const maxForwardSpeed =
-    isBoosting
-      ? Math.max(
-          controller.maxForwardSpeed *
-            controller.boostMultiplier,
-          controller.boostMinSpeed,
-        )
-      : controller.maxForwardSpeed;
+  const maxForwardSpeed = isBoosting
+    ? Math.max(
+        controller.maxForwardSpeed *
+          controller.boostMultiplier,
+        controller.boostMinSpeed,
+      )
+    : controller.maxForwardSpeed;
 
-  if (
-    forwardSpeed >
-    maxForwardSpeed
-  ) {
+  if (forwardSpeed > maxForwardSpeed) {
     const difference =
       maxForwardSpeed -
       forwardSpeed;
@@ -377,40 +344,43 @@ function applyLateralGrip(
   controller: CarControllerComponent,
   deltaTime: number,
 ): void {
-  const rightX =
-    Math.cos(transform.yaw);
+  const rightX = Math.cos(
+    transform.yaw,
+  );
 
-  const rightZ =
-    -Math.sin(transform.yaw);
+  const rightZ = -Math.sin(
+    transform.yaw,
+  );
 
   const lateralSpeed =
-    motion.velocityX * rightX +
-    motion.velocityZ * rightZ;
+    motion.velocityX *
+      rightX +
+    motion.velocityZ *
+      rightZ;
 
-  const grip =
-    input.brake
-      ? controller.driftGrip
-      : controller.lateralGrip;
+  const grip = input.brake
+    ? controller.driftGrip
+    : controller.lateralGrip;
 
-  const correction =
-    clamp(
-      grip * deltaTime,
-      0,
-      1,
-    );
+  const correction = clamp(
+    grip *
+      deltaTime,
+    0,
+    1,
+  );
 
-  motion.velocityX +=
+  motion.velocityX -=
     rightX *
-    -lateralSpeed *
+    lateralSpeed *
     correction;
 
-  motion.velocityZ +=
+  motion.velocityZ -=
     rightZ *
-    -lateralSpeed *
+    lateralSpeed *
     correction;
 }
 
-function updateRotation(
+function updateAngularVelocity(
   transform: TransformComponent,
   motion: MotionComponent,
   input: PlayerInputComponent,
@@ -419,25 +389,24 @@ function updateRotation(
   isBoosting: boolean,
   deltaTime: number,
 ): void {
-  const forwardSpeed =
-    getForwardSpeed(
-      transform,
-      motion,
-    );
+  const forwardSpeed = getForwardSpeed(
+    transform,
+    motion,
+  );
 
-  const speed =
-    getHorizontalSpeed(motion);
+  const speed = getHorizontalSpeed(
+    motion,
+  );
 
-  const speedRatio =
-    clamp(
-      speed /
-        Math.max(
-          controller.maxForwardSpeed,
-          0.001,
-        ),
-      0,
-      1,
-    );
+  const speedRatio = clamp(
+    speed /
+      Math.max(
+        controller.maxForwardSpeed,
+        0.001,
+      ),
+    0,
+    1,
+  );
 
   const turnControl =
     controller.lowSpeedTurnFactor +
@@ -487,36 +456,6 @@ function updateRotation(
           deltaTime,
       );
   }
-
-  transform.yaw +=
-    motion.angularVelocity *
-    deltaTime;
-}
-
-function integratePosition(
-  transform: TransformComponent,
-  motion: MotionComponent,
-  deltaTime: number,
-): void {
-  transform.positionX +=
-    motion.velocityX *
-    deltaTime;
-
-  transform.positionY +=
-    motion.velocityY *
-    deltaTime;
-
-  transform.positionZ +=
-    motion.velocityZ *
-    deltaTime;
-
-  /*
-   * Temporary ground-plane restriction.
-   *
-   * Rapier will own vertical physics later.
-   */
-  transform.positionY = 0;
-  motion.velocityY = 0;
 }
 
 function getHorizontalSpeed(
@@ -533,10 +472,14 @@ function getForwardSpeed(
   motion: MotionComponent,
 ): number {
   const forwardX =
-    -Math.sin(transform.yaw);
+    -Math.sin(
+      transform.yaw,
+    );
 
   const forwardZ =
-    -Math.cos(transform.yaw);
+    -Math.cos(
+      transform.yaw,
+    );
 
   return (
     motion.velocityX *
@@ -551,10 +494,14 @@ function calculateSlipRatio(
   motion: MotionComponent,
 ): number {
   const rightX =
-    Math.cos(transform.yaw);
+    Math.cos(
+      transform.yaw,
+    );
 
   const rightZ =
-    -Math.sin(transform.yaw);
+    -Math.sin(
+      transform.yaw,
+    );
 
   const lateralSpeed =
     Math.abs(
@@ -566,7 +513,9 @@ function calculateSlipRatio(
 
   const totalSpeed =
     Math.max(
-      getHorizontalSpeed(motion),
+      getHorizontalSpeed(
+        motion,
+      ),
       0.001,
     );
 
@@ -613,14 +562,5 @@ function clamp(
       min,
     ),
     max,
-  );
-}
-
-function normalizeAngle(
-  angle: number,
-): number {
-  return Math.atan2(
-    Math.sin(angle),
-    Math.cos(angle),
   );
 }
